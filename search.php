@@ -23,14 +23,17 @@ $trainings = [];
 $counts = ['employees' => 0, 'trainings' => 0];
 
 if (!empty($query)) {
-    // Mitarbeiter-Suche
+    // Mitarbeiter-Suche - jetzt mit Status, um archivierte zu identifizieren
     $empStmt = $conn->prepare("
-        SELECT employee_id, name, position, crew, gruppe
+        SELECT employee_id, name, position, crew, gruppe, status
         FROM employees 
         WHERE name LIKE ? 
            OR position LIKE ?
            OR crew LIKE ?
            OR gruppe LIKE ?
+        ORDER BY 
+            CASE WHEN status = 9999 THEN 1 ELSE 0 END, 
+            name ASC
     ");
 
     if ($empStmt) {
@@ -102,11 +105,29 @@ if ($counts['employees'] == 0 && $counts['trainings'] > 0) {
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
         }
 
+        .search-result-card.archived {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+
+        .search-result-card.archived .card-title {
+            color: #6c757d;
+        }
+
+        .search-result-card.archived .card-title a {
+            color: #6c757d;
+        }
+
         .badge-category {
             font-size: 0.8rem;
             padding: 0.25em 0.5em;
             margin-right: 0.5rem;
             border-radius: 20px;
+        }
+
+        .badge-archived {
+            background-color: #6c757d;
+            color: white;
         }
 
         .search-meta {
@@ -248,30 +269,48 @@ if ($counts['employees'] == 0 && $counts['trainings'] > 0) {
                 <?php elseif (count($employees) > 0): ?>
                     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
                         <?php foreach ($employees as $emp): ?>
+                            <?php
+                            $isArchived = isset($emp['status']) && $emp['status'] == 9999;
+                            $detailsUrl = $isArchived
+                                ? "archived_employee_details.php?employee_id=" . (int)$emp['employee_id']
+                                : "employee_details.php?employee_id=" . (int)$emp['employee_id'];
+                            ?>
                             <div class="col">
-                                <div class="card search-result-card">
+                                <div class="card search-result-card <?php echo $isArchived ? 'archived' : ''; ?>">
                                     <div class="card-body">
                                         <h5 class="card-title">
-                                            <a href="employee_details.php?employee_id=<?php echo (int)$emp['employee_id']; ?>"
-                                               class="text-decoration-none">
+                                            <a href="<?php echo $detailsUrl; ?>" class="text-decoration-none">
                                                 <?php echo htmlspecialchars($emp['name']); ?>
+                                                <?php if ($isArchived): ?>
+                                                    <span class="badge badge-archived">
+                                                        <i class="bi bi-archive-fill"></i> Archiviert
+                                                    </span>
+                                                <?php endif; ?>
                                             </a>
                                         </h5>
-                                        <p class="card-text">
-                                            <span class="badge bg-secondary"><?php echo htmlspecialchars($emp['position']); ?></span>
 
-                                            <?php if (!empty($emp['crew']) && $emp['crew'] !== '---'): ?>
-                                                <span class="badge bg-info text-dark"><?php echo htmlspecialchars($emp['crew']); ?></span>
-                                            <?php endif; ?>
+                                        <?php if (!$isArchived): ?>
+                                            <p class="card-text">
+                                                <span class="badge bg-secondary"><?php echo htmlspecialchars($emp['position']); ?></span>
 
-                                            <?php if (!empty($emp['gruppe'])): ?>
-                                                <span class="badge bg-dark"><?php echo htmlspecialchars($emp['gruppe']); ?></span>
-                                            <?php endif; ?>
-                                        </p>
+                                                <?php if (!empty($emp['crew']) && $emp['crew'] !== '---'): ?>
+                                                    <span class="badge bg-info text-dark"><?php echo htmlspecialchars($emp['crew']); ?></span>
+                                                <?php endif; ?>
+
+                                                <?php if (!empty($emp['gruppe'])): ?>
+                                                    <span class="badge bg-dark"><?php echo htmlspecialchars($emp['gruppe']); ?></span>
+                                                <?php endif; ?>
+                                            </p>
+                                        <?php endif; ?>
+
                                         <div class="mt-auto">
-                                            <a href="employee_details.php?employee_id=<?php echo (int)$emp['employee_id']; ?>"
-                                               class="btn btn-sm btn-outline-primary">
-                                                <i class="bi bi-person-badge"></i> Profil anzeigen
+                                            <a href="<?php echo $detailsUrl; ?>"
+                                               class="btn btn-sm <?php echo $isArchived ? 'btn-outline-secondary' : 'btn-outline-primary'; ?>">
+                                                <?php if ($isArchived): ?>
+                                                    <i class="bi bi-archive"></i> Archivierte Daten anzeigen
+                                                <?php else: ?>
+                                                    <i class="bi bi-person-badge"></i> Profil anzeigen
+                                                <?php endif; ?>
                                             </a>
                                         </div>
                                     </div>

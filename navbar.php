@@ -114,7 +114,14 @@ $hr_menu_items = [
         'icon' => 'fa-list-check',
         'target' => '_blank',
         'extra' => '<i class="fas fa-external-link-alt fa-fw text-danger"></i>'
-    ]];
+    ],
+    [
+        'url' => 'ehemalige_mitarbeiter.php',
+        'title' => 'Ehemalige Mitarbeiter',
+        'icon' => 'fa-user-slash'
+    ]
+];
+
 
 // Einstellungs-Menüpunkte
 $settings_menu_items = [

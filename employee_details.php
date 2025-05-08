@@ -255,7 +255,14 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
         <!-- Hauptinformationen -->
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Persönliche Informationen</h5>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Persönliche Informationen</h5>
+                    <?php if ($ist_hr): ?>
+                        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#archiveModal">
+                            <i class="bi bi-archive"></i> Mitarbeiter archivieren
+                        </button>
+                    <?php endif; ?>
+                </div>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -428,14 +435,26 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
                     <!-- Rechte Spalte - Bild -->
                     <div class="col-md-3">
                         <div class="employee-image-container">
-                            <?php if (!empty($row['bild'])): ?>
+                            <?php if (!empty($row['bild']) && $row['bild'] !== 'kein-bild.jpg'): ?>
                                 <img src="../mitarbeiter-anzeige/fotos/<?php echo htmlspecialchars($row['bild']); ?>"
-                                     alt="Mitarbeiterfoto" class="employee-image">
+                                     alt="Mitarbeiterfoto" class="employee-image" id="employee-photo">
+                                <?php if ($ist_hr || ist_empfang()): ?>
+                                    <div class="mt-2 text-center">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#photoModal">
+                                            <i class="bi bi-camera"></i> Foto ändern
+                                        </button>
+                                    </div>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <div class="no-image">
                                     <div class="text-center">
                                         <i class="bi bi-person-fill display-4"></i>
                                         <p class="mb-0">Kein Bild vorhanden</p>
+                                        <?php if ($ist_hr || ist_empfang()): ?>
+                                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#photoModal">
+                                                <i class="bi bi-camera"></i> Foto hinzufügen
+                                            </button>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endif; ?>
@@ -996,8 +1015,267 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
     </div>
 </div>
 
+<!-- Photo Upload Modal -->
+<div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="photoModalLabel">Mitarbeiterfoto ändern</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="photoUploadForm" enctype="multipart/form-data">
+                    <input type="hidden" name="employee_id" value="<?php echo htmlspecialchars($id); ?>">
+
+                    <div class="text-center mb-3" id="photoPreviewContainer">
+                        <?php if (!empty($row['bild']) && $row['bild'] !== 'kein-bild.jpg'): ?>
+                            <img src="../mitarbeiter-anzeige/fotos/<?php echo htmlspecialchars($row['bild']); ?>"
+                                 alt="Mitarbeiterfoto" class="img-thumbnail" id="photoPreview"
+                                 style="max-height: 200px;">
+                        <?php else: ?>
+                            <div class="border border-2 rounded p-4 d-inline-block" id="photoPreviewPlaceholder">
+                                <i class="bi bi-person-fill" style="font-size: 3rem; color: #dee2e6;"></i>
+                                <p class="mb-0 text-muted">Kein Bild</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="employee_photo" class="form-label">Neues Foto auswählen:</label>
+                        <input type="file" class="form-control" id="employee_photo" name="employee_photo"
+                               accept="image/jpeg, image/png, image/gif">
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="remove_photo" name="remove_photo" value="1">
+                        <label class="form-check-label" for="remove_photo">
+                            Foto entfernen (Standardbild verwenden)
+                        </label>
+                    </div>
+                </form>
+                <div class="alert" id="photoUploadMessage" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="savePhotoBtn">
+                    <i class="bi bi-save"></i> Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Archive Employee Modal -->
+<?php if ($ist_hr): ?>
+    <div class="modal fade" id="archiveModal" tabindex="-1" aria-labelledby="archiveModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="archiveModalLabel">
+                        <i class="bi bi-archive me-2"></i>Mitarbeiter archivieren
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="archive_employee.php" method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="employee_id" value="<?php echo htmlspecialchars($id); ?>">
+
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <strong>Achtung!</strong> Sie sind dabei, <?php echo htmlspecialchars($row['name']); ?> zu archivieren.
+                            <p class="mb-0 mt-2">
+                                Dies sollte nur für Mitarbeiter durchgeführt werden, die das Unternehmen verlassen haben.
+                                Archivierte Mitarbeiter werden nicht gelöscht, aber sie werden aus den aktiven Listen entfernt.
+                            </p>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="leave_date" class="form-label">Austrittsdatum:</label>
+                            <input type="date" class="form-control" id="leave_date" name="leave_date"
+                                   value="<?php echo date('Y-m-d'); ?>" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="leave_reason" class="form-label">Grund für Austritt (optional):</label>
+                            <select class="form-select" id="leave_reason" name="leave_reason">
+                                <option value="Kündigung Arbeitnehmer">Kündigung Arbeitnehmer</option>
+                                <option value="Kündigung Arbeitgeber">Kündigung Arbeitgeber</option>
+                                <option value="Einvernehmlich">Einvernehmlich</option>
+                                <option value="Pension">Pension</option>
+                                <option value="Befristetes Arbeitsverhältnis">Befristetes Arbeitsverhältnis</option>
+                                <option value="Sonstiges">Sonstiges</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-archive"></i> Mitarbeiter archivieren
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
 <!-- JavaScript -->
 <script src="assets/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="employee-scripts.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Photo preview functionality
+        const photoInput = document.getElementById('employee_photo');
+        const photoPreview = document.getElementById('photoPreview');
+        const photoPreviewPlaceholder = document.getElementById('photoPreviewPlaceholder');
+        const removePhotoCheckbox = document.getElementById('remove_photo');
+        const photoPreviewContainer = document.getElementById('photoPreviewContainer');
+        const photoUploadMessage = document.getElementById('photoUploadMessage');
+
+        if (photoInput) {
+            photoInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const reader = new FileReader();
+
+                    reader.onload = function(e) {
+                        // Create or show image preview
+                        if (!photoPreview) {
+                            // Create image if it doesn't exist
+                            const newImage = document.createElement('img');
+                            newImage.id = 'photoPreview';
+                            newImage.alt = 'Mitarbeiterfoto';
+                            newImage.className = 'img-thumbnail';
+                            newImage.style.maxHeight = '200px';
+                            photoPreviewContainer.innerHTML = '';
+                            photoPreviewContainer.appendChild(newImage);
+                            newImage.src = e.target.result;
+                        } else {
+                            // Update existing image
+                            photoPreview.src = e.target.result;
+                            photoPreview.style.display = 'inline-block';
+                        }
+
+                        // Hide placeholder if it exists
+                        if (photoPreviewPlaceholder) {
+                            photoPreviewPlaceholder.style.display = 'none';
+                        }
+
+                        // Uncheck remove option if file is selected
+                        if (removePhotoCheckbox) {
+                            removePhotoCheckbox.checked = false;
+                        }
+                    }
+
+                    reader.readAsDataURL(this.files[0]);
+                }
+            });
+        }
+
+        // Handle remove photo checkbox
+        if (removePhotoCheckbox) {
+            removePhotoCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    // Disable file input
+                    if (photoInput) {
+                        photoInput.value = '';
+                        photoInput.disabled = true;
+                    }
+
+                    // Show placeholder, hide image
+                    if (photoPreview) {
+                        photoPreview.style.display = 'none';
+                    }
+
+                    if (photoPreviewPlaceholder) {
+                        photoPreviewPlaceholder.style.display = 'inline-block';
+                    } else {
+                        // Create placeholder if it doesn't exist
+                        const newPlaceholder = document.createElement('div');
+                        newPlaceholder.id = 'photoPreviewPlaceholder';
+                        newPlaceholder.className = 'border border-2 rounded p-4 d-inline-block';
+                        newPlaceholder.innerHTML = `
+                        <i class="bi bi-person-fill" style="font-size: 3rem; color: #dee2e6;"></i>
+                        <p class="mb-0 text-muted">Kein Bild</p>
+                    `;
+                        photoPreviewContainer.innerHTML = '';
+                        photoPreviewContainer.appendChild(newPlaceholder);
+                    }
+                } else {
+                    // Enable file input
+                    if (photoInput) {
+                        photoInput.disabled = false;
+                    }
+
+                    // Restore previous state
+                    if (photoPreview && photoPreview.src) {
+                        photoPreview.style.display = 'inline-block';
+                        if (photoPreviewPlaceholder) {
+                            photoPreviewPlaceholder.style.display = 'none';
+                        }
+                    }
+                }
+            });
+        }
+
+        // Handle photo upload
+        const savePhotoBtn = document.getElementById('savePhotoBtn');
+        const photoUploadForm = document.getElementById('photoUploadForm');
+
+        if (savePhotoBtn && photoUploadForm) {
+            savePhotoBtn.addEventListener('click', function() {
+                const formData = new FormData(photoUploadForm);
+
+                // Show loading state
+                savePhotoBtn.disabled = true;
+                savePhotoBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Speichern...';
+
+                fetch('update_employee_photo.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Reset button state
+                        savePhotoBtn.disabled = false;
+                        savePhotoBtn.innerHTML = '<i class="bi bi-save"></i> Speichern';
+
+                        // Show message
+                        photoUploadMessage.style.display = 'block';
+                        photoUploadMessage.className = 'alert ' + (data.success ? 'alert-success' : 'alert-danger');
+                        photoUploadMessage.textContent = data.message;
+
+                        // Update page image if successful
+                        if (data.success) {
+                            const mainPhoto = document.getElementById('employee-photo');
+                            if (mainPhoto && data.new_photo) {
+                                mainPhoto.src = '../mitarbeiter-anzeige/fotos/' + data.new_photo;
+                            }
+
+                            // Auto close modal after delay
+                            setTimeout(() => {
+                                const modal = bootstrap.Modal.getInstance(document.getElementById('photoModal'));
+                                if (modal) {
+                                    modal.hide();
+                                    // Reload page for complete refresh
+                                    window.location.reload();
+                                }
+                            }, 1500);
+                        }
+                    })
+                    .catch(error => {
+                        // Reset button state
+                        savePhotoBtn.disabled = false;
+                        savePhotoBtn.innerHTML = '<i class="bi bi-save"></i> Speichern';
+
+                        // Show error message
+                        photoUploadMessage.style.display = 'block';
+                        photoUploadMessage.className = 'alert alert-danger';
+                        photoUploadMessage.textContent = 'Fehler beim Upload: ' + error.message;
+                        console.error('Error:', error);
+                    });
+            });
+        }
+    });
+</script>
 </body>
 </html>
