@@ -511,12 +511,14 @@ $links_menu_items = [
                             </div>
                         </ul>
                     </li>
-                <?php endif; ?>
 
-                <?php if (ist_admin() || ist_hr()): ?>
-                    <!-- Einstellungen-Dropdown jetzt nur für Admins oder HR, nicht aber Werksleiter -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle text-white" href="#" id="einstellungenDropdown" …>
+                        <a class="nav-link dropdown-toggle text-white"
+                           href="#"
+                           id="einstellungenDropdown"
+                           role="button"
+                           data-bs-toggle="dropdown"
+                           aria-expanded="false">
                             <i class="fas fa-cog fa-fw"></i> Einstellungen
                         </a>
                         <ul class="dropdown-menu dropdown-menu-grid" aria-labelledby="einstellungenDropdown">
@@ -591,7 +593,8 @@ $links_menu_items = [
                                 <?php if ($group['access']): ?>
                                     <?php foreach ($group['items'] as $item): ?>
                                         <li>
-                                            <a class="dropdown-item" href="<?php echo htmlspecialchars($item['url']); ?>">
+                                            <a class="dropdown-item"
+                                               href="<?php echo htmlspecialchars($item['url']); ?>">
                                                 <i class="fas <?php echo htmlspecialchars($item['icon']); ?> fa-fw"></i>
                                                 <?php echo htmlspecialchars($item['title']); ?>
                                             </a>
@@ -607,9 +610,9 @@ $links_menu_items = [
             <!-- Rechts-Sektion -->
             <ul class="navbar-nav ms-auto d-flex flex-row align-items-center">
                 <!-- Datum/Zeit -->
-<!--                <li class="nav-item me-3">-->
-<!--                    <span id="date-time" class="text-white"></span>-->
-<!--                </li>-->
+                <!--                <li class="nav-item me-3">-->
+                <!--                    <span id="date-time" class="text-white"></span>-->
+                <!--                </li>-->
 
                 <!-- Benutzer Dropdown -->
                 <li class="nav-item dropdown me-3">
@@ -650,29 +653,29 @@ $links_menu_items = [
 <!-- JavaScript für die Navbar -->
 <script>
 
-/*    Navbar Datums/Zeitanzeige auskommentiert
+    /*    Navbar Datums/Zeitanzeige auskommentiert
 
-    // Datum/Zeit aktualisieren
-    function updateDateTime() {
-        const now = new Date();
-        const options = {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        };
-        document.getElementById('date-time').textContent = now.toLocaleString('de-AT', options);
-    }
+        // Datum/Zeit aktualisieren
+        function updateDateTime() {
+            const now = new Date();
+            const options = {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            document.getElementById('date-time').textContent = now.toLocaleString('de-AT', options);
+        }
 
-    // Initial und dann regelmäßig aktualisieren
-    updateDateTime();
-    setInterval(updateDateTime, 60000);
+        // Initial und dann regelmäßig aktualisieren
+        updateDateTime();
+        setInterval(updateDateTime, 60000);
 
-    */
+        */
 
     // Aktuelle Seite hervorheben
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const currentLocation = location.pathname.split('/').slice(-1)[0];
 
         // Prüfe alle Haupt-Links
@@ -703,7 +706,7 @@ $links_menu_items = [
     });
 
     // Automatisches Schließen des Hamburger-Menüs bei Klick auf einen Link im mobilen Modus
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         if (window.innerWidth < 992) {
             document.querySelectorAll('.navbar-nav a').forEach(link => {
                 link.addEventListener('click', () => {

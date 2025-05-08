@@ -78,9 +78,10 @@ if (!defined('ACCESS_CONTROL_INCLUDED')) {
     // ROLE CHECKS (ist_…)
     //==========================================================================
 
-    function ist_admin(): bool
+    function ist_admin()
     {
-        return !empty($_SESSION['ist_admin']);
+        return (isset($_SESSION['ist_admin']) && $_SESSION['ist_admin'])
+            || ist_position('Verwaltung - IT');
     }
 
     function ist_position(string $pos): bool
