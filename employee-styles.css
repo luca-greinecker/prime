@@ -1,0 +1,265 @@
+/* Allgemeine Verbesserungen */
+:root {
+    --primary-color: #007bff;
+    --primary-hover: #0069d9;
+    --secondary-color: #6c757d;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+    --border-radius: 0.25rem;
+    --box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --transition: all 0.2s ease-in-out;
+}
+
+body {
+    background-color: #f5f7fa;
+    color: #495057;
+}
+
+.container {
+    max-width: 1340px;
+    padding: 1.5rem;
+}
+
+/* Header und Navigation */
+.page-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Karten und Container */
+.card {
+    border: none;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    margin-bottom: 1.5rem;
+    transition: var(--transition);
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background-color: white;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+}
+
+/* Formulare */
+.form-control, .form-select {
+    border-radius: var(--border-radius);
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ced4da;
+    transition: var(--transition);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-control:disabled, .form-select:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+/* Buttons */
+.btn {
+    border-radius: var(--border-radius);
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.btn-warning {
+    color: #212529;
+    background-color: var(--warning-color);
+    border-color: var(--warning-color);
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    border-color: var(--danger-color);
+}
+
+/* Tabellen */
+.table {
+    background-color: white;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    color: #495057;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Mitarbeiter-Informationskarten */
+.employee-info-card {
+    background-color: white;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--box-shadow);
+}
+
+.section-title {
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    color: #343a40;
+}
+
+/* Mitarbeiterfoto */
+.employee-image-container {
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    margin-bottom: 1rem;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.employee-image {
+    max-width: 100%;
+    max-height: 330px;
+    border-radius: var(--border-radius);
+}
+
+.no-image {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 200px;
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px dashed #ced4da;
+    border-radius: var(--border-radius);
+    font-weight: 500;
+}
+
+/* Zusätzliche Informationskästen */
+.additional-info {
+    background-color: white;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--box-shadow);
+    border-top: 4px solid var(--primary-color);
+}
+
+.additional-info h4 {
+    margin-top: 0;
+    font-weight: 600;
+    color: #343a40;
+    margin-bottom: 1rem;
+}
+
+/* Badges und Status-Anzeigen */
+.badge {
+    padding: 0.5rem 0.75rem;
+    font-weight: 500;
+    border-radius: 30px;
+}
+
+/* Trennlinien */
+.thin-divider {
+    margin: 1.5rem 0;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Weiterbildungsinfos */
+.training-info {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    border-left: 3px solid var(--info-color);
+}
+
+/* Checkboxen */
+.form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.form-check-label {
+    margin-left: 0.25rem;
+}
+
+/* Pflichtfeld-Marker */
+.required-marker {
+    color: #dc3545;
+    font-weight: bold;
+    margin-left: 0.25rem;
+}
+
+/* Validierungsstile */
+.is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+}
+
+/* Team-Feld-Hervorhebung bei Schichtarbeit */
+.highlight-required {
+    background-color: rgba(255, 243, 205, 0.5);
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    border-left: 3px solid #ffc107;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .employee-image-container {
+        max-height: 220px;
+        margin-bottom: 1.5rem;
+    }
+}

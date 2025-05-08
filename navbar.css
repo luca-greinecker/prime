@@ -1,0 +1,44 @@
+/* navbar.css */
+body {
+    font-family: 'Segment', Arial, sans-serif !important;
+    background-color: #f8f9fa;
+}
+
+.content {
+    margin-top: 6rem; /* Genereller Abstand von oben für Inhalt */
+    margin-bottom: 4rem;
+}
+
+.divider {
+    border-bottom: 2px solid #1140fe;
+    margin: 10px 0;
+}
+
+.thin-divider {
+    border-bottom: 1px solid #1140fe;
+    margin: 10px;
+}
+
+.mb-2 label, .mb-3 label, .navbar-brand {
+    font-weight: bold;
+}
+
+.form-check-label {
+    font-weight: normal !important;
+}
+
+/*.container {
+    max-width: 1320px !important;
+}*/
+
+:root {
+    --ball-blue: #1140FE;
+    --ball-blue-light: #4169FE;
+    --ball-blue-dark: #0030DD;
+    --ball-black: #000000;
+    --ball-charcoal: #1A1A1A;
+    --ball-grey: #8C8E94;
+    --ball-white: #FFFFFF;
+    --ball-highlight: rgba(255, 255, 255, 0.15);
+    --ball-shadow: rgba(0, 0, 0, 0.2);
+}
