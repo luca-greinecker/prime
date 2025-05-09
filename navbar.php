@@ -497,7 +497,15 @@ $links_menu_items = [
                     <?php endif; ?>
                 <?php endforeach; ?>
 
-                <!-- HR-Dropdown kompakter gestaltet -->
+                <?php if ($has_access_to_reception): ?>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="hr_uebersicht.php">
+                            <i class="fas fa-users fa-fw"></i> MA-Übersicht
+                        </a>
+                    </li>
+                <?php endif; ?>
+
+                <!-- HR-Dropdown -->
                 <?php if ($has_access_to_hr): ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle text-white" href="#" id="hrDropdown" role="button"

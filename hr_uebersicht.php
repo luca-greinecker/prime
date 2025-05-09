@@ -12,10 +12,10 @@ include 'team_definitions.php';
 
 global $conn;
 pruefe_benutzer_eingeloggt();
-pruefe_admin_oder_hr_zugriff(); // Zugriffskontrolle für Admin und HR
+pruefe_admin_oder_hr_oder_empfang_zugriff();
 
 // Die $teams, $additional_groups, $bereichsgruppen und $tagschicht_bereichsgruppen
-// werden aus team_functions.php importiert
+// werden aus team_definitions.php importiert
 ?>
     <!DOCTYPE html>
     <html lang="de">

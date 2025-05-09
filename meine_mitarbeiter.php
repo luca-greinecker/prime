@@ -63,7 +63,7 @@ if (!empty($employee_ids)) {
     $placeholders = implode(',', array_fill(0, count($employee_ids), '?'));
     $types = str_repeat('i', count($employee_ids));
     $query = "
-        SELECT employee_id, name, birthdate, entry_date
+        SELECT employee_id, name, birthdate, entry_date, anwesend, status
         FROM employees
         WHERE employee_id IN ($placeholders)
         ORDER BY name ASC
@@ -180,6 +180,16 @@ foreach ($employees as &$employee) {
     $geburtstag = new DateTime($employee['birthdate']);
     $employee['hat_geburtstag'] = ($geburtstag->format('m') == date('m'));
     $employee['geburtstagsdatum'] = $geburtstag->format('d.m');
+
+    // Anwesenheitsstatus und Label
+    $statusLabels = [
+        0 => 'Unbekannt',
+        1 => 'Krank',
+        2 => 'Urlaub',
+        3 => 'Schulung'
+    ];
+
+    $employee['anwesend_label'] = $employee['anwesend'] ? 'Anwesend' : $statusLabels[$employee['status']] ?? 'Abwesend';
 }
 unset($employee); // Referenz lösen
 
@@ -197,7 +207,7 @@ if ($ist_leiter) {
         $types = str_repeat('i', count($leiter_mitarbeiter_ids));
 
         $query = "
-            SELECT employee_id, name, birthdate, entry_date
+            SELECT employee_id, name, birthdate, entry_date, anwesend, status
             FROM employees
             WHERE employee_id IN ($placeholders)
             ORDER BY name ASC
@@ -242,6 +252,16 @@ if ($ist_leiter) {
         $geburtstag = new DateTime($employee['birthdate']);
         $employee['hat_geburtstag'] = ($geburtstag->format('m') == date('m'));
         $employee['geburtstagsdatum'] = $geburtstag->format('d.m');
+
+        // Anwesenheitsstatus und Label
+        $statusLabels = [
+            0 => 'Unbekannt',
+            1 => 'Krank',
+            2 => 'Urlaub',
+            3 => 'Schulung'
+        ];
+
+        $employee['anwesend_label'] = $employee['anwesend'] ? 'Anwesend' : $statusLabels[$employee['status']] ?? 'Abwesend';
     }
     unset($employee);
 }
@@ -273,6 +293,7 @@ function is_recent($date, $daysBack = 5)
     <!-- Lokales Bootstrap + Navbar -->
     <link href="navbar.css" rel="stylesheet">
     <link href="assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 
     <style>
         .employee-list ul {
@@ -290,10 +311,14 @@ function is_recent($date, $daysBack = 5)
 
         .names-meinema {
             width: 19rem;
+            display: flex;
+            align-items: center;
         }
 
         .names {
             width: 15rem;
+            display: flex;
+            align-items: center;
         }
 
         #badges {
@@ -361,6 +386,60 @@ function is_recent($date, $daysBack = 5)
             margin: 1rem 0;
             border-bottom: 1px solid #ddd;
         }
+
+        /* Anwesenheits-Indikator Stile */
+        .presence-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            position: relative;
+        }
+
+        .presence-indicator.present {
+            background-color: #28a745; /* Grün für anwesend */
+            box-shadow: 0 0 5px rgba(40, 167, 69, 0.6);
+        }
+
+        .presence-indicator.absent {
+            background-color: #6c757d; /* Grau für abwesend */
+        }
+
+        .presence-indicator.sick {
+            background-color: #dc3545; /* Rot für krank */
+        }
+
+        .presence-indicator.vacation {
+            background-color: #0000ff; /* Blau für Urlaub */
+        }
+
+        .presence-indicator.training {
+            background-color: #ffc107; /* Gelb für Schulung */
+        }
+
+        .presence-tooltip {
+            visibility: hidden;
+            position: absolute;
+            z-index: 1;
+            width: 120px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 125%;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8rem;
+        }
+
+        .presence-indicator:hover .presence-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -385,8 +464,15 @@ function is_recent($date, $daysBack = 5)
             <br><br>
             <strong>Allgemein:</strong>
             Falls Mitarbeiter fehlen oder zu viel angezeigt werden, wende dich bitte an Luca (IT-Büro).
+            <br><br>
+            <strong>Anwesenheits-Indikator:</strong>
+            <span style='color: #28a745'>●</span> Anwesend
+            <span style='color: #6c757d'>●</span> Abwesend (kein Status)
+            <span style='color: #dc3545'>●</span> Krank
+            <span style='color: #0000ff'>●</span> Urlaub
+            <span style='color: #ffc107'>●</span> Schulung
         ">
-            <i class="fas fa-info-circle"></i>
+            <i class="bi bi-info-circle"></i>
         </button>
     </h1>
 
@@ -425,8 +511,37 @@ function is_recent($date, $daysBack = 5)
                 <?php else: ?>
                     <?php foreach ($employees as $employee): ?>
                         <li>
-                            <!-- Name + evtl. Geburtstagsbadge -->
+                            <!-- Name + Anwesenheitsindikator + evtl. Geburtstagsbadge -->
                             <div class="names-meinema">
+                                <?php
+                                // Bestimme die richtige Klasse für den Indikator
+                                $indicatorClass = 'absent';
+                                $tooltip = 'Abwesend';
+
+                                if ($employee['anwesend']) {
+                                    $indicatorClass = 'present';
+                                    $tooltip = 'Anwesend';
+                                } else {
+                                    // Nicht anwesend - Status prüfen
+                                    switch ($employee['status']) {
+                                        case 1:
+                                            $indicatorClass = 'sick';
+                                            $tooltip = 'Krank';
+                                            break;
+                                        case 2:
+                                            $indicatorClass = 'vacation';
+                                            $tooltip = 'Urlaub';
+                                            break;
+                                        case 3:
+                                            $indicatorClass = 'training';
+                                            $tooltip = 'Schulung';
+                                            break;
+                                    }
+                                }
+                                ?>
+                                <span class="presence-indicator <?php echo $indicatorClass; ?>">
+                                    <span class="presence-tooltip"><?php echo $tooltip; ?></span>
+                                </span>
                                 <a href="employee_details.php?employee_id=<?php echo htmlspecialchars($employee['employee_id']); ?>">
                                     <?php echo htmlspecialchars($employee['name']); ?>
                                 </a>
@@ -490,6 +605,35 @@ function is_recent($date, $daysBack = 5)
                         <?php foreach ($leiter_mitarbeiter as $employee): ?>
                             <li class="d-flex justify-content-between align-items-center">
                                 <div class="names">
+                                    <?php
+                                    // Bestimme die richtige Klasse für den Indikator
+                                    $indicatorClass = 'absent';
+                                    $tooltip = 'Abwesend';
+
+                                    if ($employee['anwesend']) {
+                                        $indicatorClass = 'present';
+                                        $tooltip = 'Anwesend';
+                                    } else {
+                                        // Nicht anwesend - Status prüfen
+                                        switch ($employee['status']) {
+                                            case 1:
+                                                $indicatorClass = 'sick';
+                                                $tooltip = 'Krank';
+                                                break;
+                                            case 2:
+                                                $indicatorClass = 'vacation';
+                                                $tooltip = 'Urlaub';
+                                                break;
+                                            case 3:
+                                                $indicatorClass = 'training';
+                                                $tooltip = 'Schulung';
+                                                break;
+                                        }
+                                    }
+                                    ?>
+                                    <span class="presence-indicator <?php echo $indicatorClass; ?>">
+                                        <span class="presence-tooltip"><?php echo $tooltip; ?></span>
+                                    </span>
                                     <a href="employee_details.php?employee_id=<?php echo htmlspecialchars($employee['employee_id']); ?>">
                                         <?php echo htmlspecialchars($employee['name']); ?>
                                     </a>

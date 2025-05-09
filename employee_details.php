@@ -4,8 +4,7 @@
  *
  * Diese Seite zeigt detaillierte Informationen zu einem Mitarbeiter an – einschließlich
  * letzter Mitarbeitergespräche, Bewertungen, Ausbildung, Weiterbildungen und weiteren Daten.
- * Zugriffskontrolle: Nur Benutzer mit entsprechenden Rechten (z. B. Führungskräfte)
- * dürfen die Daten einsehen und bearbeiten.
+ * Zugriffskontrolle: Nur Benutzer mit entsprechenden Rechten dürfen die Daten einsehen und bearbeiten.
  */
 
 include 'access_control.php'; // Session-Management und Zugriffskontrolle
@@ -36,6 +35,8 @@ $stmt->close();
 
 $position = $user['position'] ?? '';
 $crew = $user['crew'] ?? '';
+
+// Benutzerberechtigungen
 $ist_admin = ist_admin();
 $ist_sm = ist_sm();
 $ist_smstv = ist_smstv();
@@ -43,7 +44,8 @@ $ist_hr = ist_hr();
 $ist_bereichsleiter = ist_bereichsleiter();
 $ist_trainingsmanager = ist_trainingsmanager();
 $ist_ehs = ist_ehs();
-$ist_leiter = ist_leiter(); // Abteilungsleiter
+$ist_leiter = ist_leiter();
+$ist_empfang = ist_empfang();
 
 // Mitarbeiterinformationen abrufen
 if (isset($_GET['employee_id']) && is_numeric($_GET['employee_id'])) {
@@ -74,99 +76,110 @@ if (isset($_GET['employee_id']) && is_numeric($_GET['employee_id'])) {
     exit;
 }
 
-// Für Formularfelder, die für Nicht-HR bzw. Nicht-Schichtmeister gesperrt sein sollen
+// Für Formularfelder, die für bestimmte Benutzerrollen gesperrt sein sollen
 $disabled = !$ist_hr ? 'disabled' : '';
 $disabled_sm = (!$ist_hr && !$ist_sm) ? 'disabled' : '';
+$empfang_disabled = (!$ist_hr && !$ist_empfang) ? 'disabled' : '';
+
+// Wenn der Benutzer nicht im HR oder Empfang ist, sollten sie die Daten nur lesen
+$view_only = (!$ist_hr && !$ist_sm && !$ist_smstv && !$ist_leiter && !$ist_empfang);
+
+// Nur wenn Benutzer nicht Empfangsmitarbeiter, Trainings Manager oder EHS Manager ist
+$can_view_details = !$ist_empfang && !$ist_trainingsmanager && !$ist_ehs;
 
 // Letzte Bewertung und zugehörige Skills des Mitarbeiters abrufen
-$review_stmt = $conn->prepare("
-    SELECT employee_reviews.employee_id, employee_reviews.date, employee_reviews.rueckblick, employee_reviews.entwicklung,
-           employee_reviews.feedback, employee_reviews.brandschutzwart, employee_reviews.sprinklerwart, 
-           employee_reviews.ersthelfer, employee_reviews.svp, employee_reviews.trainertaetigkeiten, 
-           employee_reviews.trainertaetigkeiten_kommentar, employee_reviews.zufriedenheit, 
-           employee_reviews.unzufriedenheit_grund, employee_reviews.reviewer_id, employee_reviews.id AS review_id
-    FROM employee_reviews
-    WHERE employee_id = ?
-    ORDER BY date DESC
-    LIMIT 1
-");
-$review_stmt->bind_param("i", $id);
-$review_stmt->execute();
-$review_result = $review_stmt->get_result();
-
-$review_row = null;
-$skills = [];
-$reviewer_name = 'Unbekannt';  // Standardwert
-if ($review_result->num_rows > 0) {
-    $review_row = $review_result->fetch_assoc();
-    $review_id = $review_row['review_id'];
-
-    // Reviewer-Name abrufen anhand des internen Schlüssels
-    if (!empty($review_row['reviewer_id'])) {
-        $reviewer_stmt = $conn->prepare("SELECT name FROM employees WHERE employee_id = ?");
-        $reviewer_stmt->bind_param("i", $review_row['reviewer_id']);
-        $reviewer_stmt->execute();
-        $reviewer_result = $reviewer_stmt->get_result();
-        if ($reviewer_result->num_rows > 0) {
-            $reviewer_name = $reviewer_result->fetch_assoc()['name'];
-        }
-        $reviewer_stmt->close();
-    }
-
-    // Skills zur letzten Bewertung abrufen
-    $skills_stmt = $conn->prepare("
-        SELECT s.name, s.kategorie, employee_skills.rating 
-        FROM employee_skills 
-        JOIN skills s ON employee_skills.skill_id = s.id 
-        WHERE employee_skills.review_id = ?
+if ($can_view_details) {
+    $review_stmt = $conn->prepare("
+        SELECT employee_reviews.employee_id, employee_reviews.date, employee_reviews.rueckblick, employee_reviews.entwicklung,
+               employee_reviews.feedback, employee_reviews.brandschutzwart, employee_reviews.sprinklerwart, 
+               employee_reviews.ersthelfer, employee_reviews.svp, employee_reviews.trainertaetigkeiten, 
+               employee_reviews.trainertaetigkeiten_kommentar, employee_reviews.zufriedenheit, 
+               employee_reviews.unzufriedenheit_grund, employee_reviews.reviewer_id, employee_reviews.id AS review_id
+        FROM employee_reviews
+        WHERE employee_id = ?
+        ORDER BY date DESC
+        LIMIT 1
     ");
-    $skills_stmt->bind_param("i", $review_id);
-    $skills_stmt->execute();
-    $skills_result = $skills_stmt->get_result();
-    while ($skill_row = $skills_result->fetch_assoc()) {
-        $skills[] = $skill_row;
+    $review_stmt->bind_param("i", $id);
+    $review_stmt->execute();
+    $review_result = $review_stmt->get_result();
+
+    $review_row = null;
+    $skills = [];
+    $reviewer_name = 'Unbekannt';  // Standardwert
+    if ($review_result->num_rows > 0) {
+        $review_row = $review_result->fetch_assoc();
+        $review_id = $review_row['review_id'];
+
+        // Reviewer-Name abrufen anhand des internen Schlüssels
+        if (!empty($review_row['reviewer_id'])) {
+            $reviewer_stmt = $conn->prepare("SELECT name FROM employees WHERE employee_id = ?");
+            $reviewer_stmt->bind_param("i", $review_row['reviewer_id']);
+            $reviewer_stmt->execute();
+            $reviewer_result = $reviewer_stmt->get_result();
+            if ($reviewer_result->num_rows > 0) {
+                $reviewer_name = $reviewer_result->fetch_assoc()['name'];
+            }
+            $reviewer_stmt->close();
+        }
+
+        // Skills zur letzten Bewertung abrufen
+        $skills_stmt = $conn->prepare("
+            SELECT s.name, s.kategorie, employee_skills.rating 
+            FROM employee_skills 
+            JOIN skills s ON employee_skills.skill_id = s.id 
+            WHERE employee_skills.review_id = ?
+        ");
+        $skills_stmt->bind_param("i", $review_id);
+        $skills_stmt->execute();
+        $skills_result = $skills_stmt->get_result();
+        while ($skill_row = $skills_result->fetch_assoc()) {
+            $skills[] = $skill_row;
+        }
+        $skills_stmt->close();
     }
-    $skills_stmt->close();
+    $review_stmt->close();
 }
-$review_stmt->close();
 
-// Ausbildungsdaten abrufen
-$education_stmt = $conn->prepare("SELECT id, education_type, education_field FROM employee_education WHERE employee_id = ?");
-$education_stmt->bind_param("i", $id);
-$education_stmt->execute();
-$education_result = $education_stmt->get_result();
-$education = [];
-while ($education_row = $education_result->fetch_assoc()) {
-    $education[] = $education_row;
-}
-$education_stmt->close();
+// Ausbildungsdaten abrufen, wenn nötig
+if (!$ist_empfang) {
+    $education_stmt = $conn->prepare("SELECT id, education_type, education_field FROM employee_education WHERE employee_id = ?");
+    $education_stmt->bind_param("i", $id);
+    $education_stmt->execute();
+    $education_result = $education_stmt->get_result();
+    $education = [];
+    while ($education_row = $education_result->fetch_assoc()) {
+        $education[] = $education_row;
+    }
+    $education_stmt->close();
 
-// Weiterbildungsdaten abrufen
-$training_stmt = $conn->prepare("
-    SELECT 
-        t.id AS training_id, 
-        t.display_id,
-        t.training_name, 
-        t.start_date, 
-        t.end_date, 
-        t.training_units,
-        mc.name AS main_category_name,
-        sc.name AS sub_category_name
-    FROM employee_training et
-    JOIN trainings t ON et.training_id = t.id
-    JOIN training_main_categories mc ON t.main_category_id = mc.id
-    LEFT JOIN training_sub_categories sc ON t.sub_category_id = sc.id
-    WHERE et.employee_id = ?
-    ORDER BY t.start_date DESC
-");
-$training_stmt->bind_param("i", $id);
-$training_stmt->execute();
-$training_result = $training_stmt->get_result();
-$training = [];
-while ($training_row = $training_result->fetch_assoc()) {
-    $training[] = $training_row;
+    // Weiterbildungsdaten abrufen
+    $training_stmt = $conn->prepare("
+        SELECT 
+            t.id AS training_id, 
+            t.display_id,
+            t.training_name, 
+            t.start_date, 
+            t.end_date, 
+            t.training_units,
+            mc.name AS main_category_name,
+            sc.name AS sub_category_name
+        FROM employee_training et
+        JOIN trainings t ON et.training_id = t.id
+        JOIN training_main_categories mc ON t.main_category_id = mc.id
+        LEFT JOIN training_sub_categories sc ON t.sub_category_id = sc.id
+        WHERE et.employee_id = ?
+        ORDER BY t.start_date DESC
+    ");
+    $training_stmt->bind_param("i", $id);
+    $training_stmt->execute();
+    $training_result = $training_stmt->get_result();
+    $training = [];
+    while ($training_row = $training_result->fetch_assoc()) {
+        $training[] = $training_row;
+    }
+    $training_stmt->close();
 }
-$training_stmt->close();
 
 // Teams und Gruppen abrufen
 $teams = ["Team L", "Team M", "Team N", "Team O", "Team P"];
@@ -209,6 +222,7 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
     "data-is-smstv=\"" . ($ist_smstv ? 'true' : 'false') . "\" " .
     "data-is-trainingsmanager=\"" . ($ist_trainingsmanager ? 'true' : 'false') . "\" " .
     "data-is-ehsmanager=\"" . ($ist_ehs ? 'true' : 'false') . "\" " .
+    "data-is-empfang=\"" . ($ist_empfang ? 'true' : 'false') . "\" " .
     "data-has-result-message=\"" . ($has_result_message ? 'true' : 'false') . "\"";
 ?>
 <!DOCTYPE html>
@@ -227,17 +241,7 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link href="employee-styles.css" rel="stylesheet">
 </head>
-<?php
-// JavaScript-Datenattribute für die Zugriffskontrolle
-$js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
-    "data-is-sm=\"" . ($ist_sm ? 'true' : 'false') . "\" " .
-    "data-is-smstv=\"" . ($ist_smstv ? 'true' : 'false') . "\" " .
-    "data-is-trainingsmanager=\"" . ($ist_trainingsmanager ? 'true' : 'false') . "\" " .
-    "data-is-ehsmanager=\"" . ($ist_ehs ? 'true' : 'false') . "\" " .
-    "data-has-result-message=\"" . ($has_result_message ? 'true' : 'false') . "\"";
-?>
 <body <?php echo $js_data_attributes; ?>>
-<?php include 'access_control.php'; ?>
 <?php include 'navbar.php'; ?>
 
 <div class="content container">
@@ -258,7 +262,8 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Persönliche Informationen</h5>
                     <?php if ($ist_hr): ?>
-                        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#archiveModal">
+                        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal"
+                                data-bs-target="#archiveModal">
                             <i class="bi bi-archive"></i> Mitarbeiter archivieren
                         </button>
                     <?php endif; ?>
@@ -379,7 +384,7 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
                             <div class="col-md-2">
                                 <label for="badge_id" class="form-label">Ausweisnummer:</label>
                                 <input type="text" class="form-control" id="badge_id" name="badge_id"
-                                       value="<?php echo htmlspecialchars($row['badge_id']); ?>" <?php echo !$ist_hr ? 'disabled' : ''; ?>>
+                                       value="<?php echo htmlspecialchars($row['badge_id']); ?>" <?php echo $empfang_disabled; ?>>
                             </div>
                             <div class="col-md-2">
                                 <label for="birthdate" class="form-label">Geburtsdatum:</label>
@@ -440,7 +445,8 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
                                      alt="Mitarbeiterfoto" class="employee-image" id="employee-photo">
                                 <?php if ($ist_hr || ist_empfang()): ?>
                                     <div class="mt-2 text-center">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#photoModal">
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                data-bs-toggle="modal" data-bs-target="#photoModal">
                                             <i class="bi bi-camera"></i> Foto ändern
                                         </button>
                                     </div>
@@ -451,7 +457,8 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
                                         <i class="bi bi-person-fill display-4"></i>
                                         <p class="mb-0">Kein Bild vorhanden</p>
                                         <?php if ($ist_hr || ist_empfang()): ?>
-                                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#photoModal">
+                                            <button type="button" class="btn btn-sm btn-outline-primary mt-2"
+                                                    data-bs-toggle="modal" data-bs-target="#photoModal">
                                                 <i class="bi bi-camera"></i> Foto hinzufügen
                                             </button>
                                         <?php endif; ?>
@@ -503,10 +510,23 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
                     </div>
                 <?php endif; ?>
             </div>
+            <div class="card-footer text-end">
+                <?php if ($ist_hr || $ist_sm || $ist_smstv || $ist_leiter): ?>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-save"></i> Änderungen speichern
+                    </button>
+                <?php elseif ($ist_empfang): ?>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-save"></i> Ausweisnummer speichern
+                    </button>
+                <?php endif; ?>
+            </div>
         </div>
+    </form>
 
+    <?php if (!$ist_empfang): ?>
         <!-- Zusätzliche Informationen - Checkbox-Sektion -->
-        <div class="card">
+        <div class="card mt-4">
             <div class="card-header">
                 <h5 class="mb-0">Erweiterte Informationen</h5>
             </div>
@@ -646,309 +666,314 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
             </div>
             <div class="card-footer text-end">
                 <?php if ($ist_hr || $ist_sm || $ist_smstv || $ist_leiter): ?>
-                    <button type="submit" class="btn btn-warning">
+                    <button type="submit" form="employeeForm" class="btn btn-warning">
                         <i class="bi bi-save"></i> Änderungen speichern
                     </button>
                 <?php endif; ?>
             </div>
         </div>
-    </form>
 
-    <!-- Ausbildung -->
-    <div class="card mt-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-mortarboard me-2"></i>Ausbildung</h5>
-            <?php if ($ist_hr): ?>
-                <a href="add_education.php?employee_id=<?php echo $id; ?>" class="btn btn-success btn-sm">
-                    <i class="bi bi-plus-circle"></i> Ausbildung hinzufügen
-                </a>
-            <?php endif; ?>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                    <tr>
-                        <th>Art der Ausbildung</th>
-                        <th>Ausbildung</th>
-                        <?php if ($ist_hr): ?>
-                            <th class="text-end">Aktionen</th>
-                        <?php endif; ?>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <?php if (empty($education)): ?>
-                        <tr>
-                            <td colspan="<?php echo $ist_hr ? '3' : '2'; ?>" class="text-center">
-                                Keine Ausbildungsdaten vorhanden
-                            </td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($education as $edu): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($edu['education_type']); ?></td>
-                                <td><?php echo htmlspecialchars($edu['education_field']); ?></td>
-                                <?php if ($ist_hr): ?>
-                                    <td class="text-end">
-                                        <a href="edit_education.php?id=<?php echo $edu['id']; ?>&employee_id=<?php echo $id; ?>"
-                                           class="btn btn-warning btn-sm">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                        <a href="delete_education.php?id=<?php echo $edu['id']; ?>&employee_id=<?php echo $id; ?>"
-                                           class="btn btn-danger btn-sm">
-                                            <i class="bi bi-trash"></i>
-                                        </a>
-                                    </td>
-                                <?php endif; ?>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Weiterbildung -->
-    <div class="card mt-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-book me-2"></i>Weiterbildung</h5>
-            <?php if ($ist_hr || $ist_trainingsmanager || $ist_ehs): ?>
-                <a href="add_training.php?employee_id=<?php echo $id; ?>" class="btn btn-success btn-sm">
-                    <i class="bi bi-plus-circle"></i> Weiterbildung hinzufügen
-                </a>
-            <?php endif; ?>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Hauptkategorie</th>
-                        <th>Unterkategorie</th>
-                        <th>Name der Weiterbildung</th>
-                        <th>Zeitraum</th>
-                        <th>Einheiten</th>
-                        <?php if ($ist_hr || $ist_trainingsmanager || $ist_ehs): ?>
-                            <th class="text-end">Aktionen</th>
-                        <?php endif; ?>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <?php if (empty($training)): ?>
-                        <tr>
-                            <td colspan="<?php echo ($ist_hr || $ist_trainingsmanager || $ist_ehs) ? '7' : '6'; ?>"
-                                class="text-center">
-                                Keine Weiterbildungen vorhanden
-                            </td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($training as $train): ?>
-                            <tr>
-                                <td>
-                                    <span class="badge bg-secondary">
-                                        <?php echo htmlspecialchars($train['display_id'] ?? $train['training_id']); ?>
-                                    </span>
-                                </td>
-                                <td><?php echo htmlspecialchars($train['main_category_name']); ?></td>
-                                <td><?php echo htmlspecialchars($train['sub_category_name'] ?? '—'); ?></td>
-                                <td><?php echo htmlspecialchars($train['training_name']); ?></td>
-                                <td>
-                                    <?php
-                                    $training_date = htmlspecialchars(date('d.m.Y', strtotime($train['start_date'])));
-                                    if ($train['start_date'] != $train['end_date']) {
-                                        $training_date .= ' - ' . htmlspecialchars(date('d.m.Y', strtotime($train['end_date'])));
-                                    }
-                                    echo $training_date;
-                                    ?>
-                                </td>
-                                <td><?php echo htmlspecialchars($train['training_units']); ?></td>
-                                <?php if ($ist_hr || $ist_trainingsmanager || $ist_ehs): ?>
-                                    <td class="text-end">
-                                        <a href="edit_training.php?id=<?php echo $train['training_id']; ?>&employee_id=<?php echo $id; ?>"
-                                           class="btn btn-warning btn-sm">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                        <a href="#"
-                                           class="btn btn-danger btn-sm delete-training-btn"
-                                           data-training-id="<?php echo $train['training_id']; ?>"
-                                           data-training-display-id="<?php echo htmlspecialchars($train['display_id'] ?? $train['training_id']); ?>"
-                                           data-training-name="<?php echo htmlspecialchars($train['training_name']); ?>"
-                                           data-training-date="<?php echo $training_date; ?>"
-                                           data-delete-url="delete_training.php?id=<?php echo $train['training_id']; ?>&employee_id=<?php echo $id; ?>">
-                                            <i class="bi bi-trash"></i>
-                                        </a>
-                                    </td>
-                                <?php endif; ?>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Mitarbeitergespräch -->
-    <?php if (!$ist_trainingsmanager && !$ist_ehs && !$ist_smstv): ?>
+        <!-- Ausbildung -->
         <div class="card mt-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-chat-text me-2"></i>
-                    Letztes Mitarbeitergespräch am <?php echo date("d.m.Y", strtotime($review_row['date'])); ?>
-                </h5>
+                <h5 class="mb-0"><i class="bi bi-mortarboard me-2"></i>Ausbildung</h5>
                 <?php if ($ist_hr): ?>
-                    <a href="history.php?employee_id=<?php echo htmlspecialchars($id); ?>" class="btn btn-info btn-sm">
-                        <i class="bi bi-clock-history"></i> Gespräch-History
+                    <a href="add_education.php?employee_id=<?php echo $id; ?>" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus-circle"></i> Ausbildung hinzufügen
                     </a>
                 <?php endif; ?>
             </div>
             <div class="card-body">
-                <?php if ($review_row): ?>
-                    <p class="mb-3">
-                        <span class="badge bg-info">Durchgeführt von: <?php echo htmlspecialchars($reviewer_name); ?></span>
-                    </p>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-light">Rückmeldungen</div>
-                                <div class="card-body">
-                                    <div class="mb-3">
-                                        <h6>Rückblick:</h6>
-                                        <p><?php echo htmlspecialchars($review_row['rueckblick']); ?></p>
-                                    </div>
-                                    <div class="mb-3">
-                                        <h6>Entwicklung:</h6>
-                                        <p><?php echo htmlspecialchars($review_row['entwicklung']); ?></p>
-                                    </div>
-                                    <div>
-                                        <h6>Feedback:</h6>
-                                        <p><?php echo htmlspecialchars($review_row['feedback']); ?></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-light">Status und Zufriedenheit</div>
-                                <div class="card-body">
-                                    <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <p><strong>Brandschutzwart:</strong>
-                                                <span class="badge <?php echo $review_row['brandschutzwart'] ? 'bg-success' : 'bg-secondary'; ?>">
-                                                    <?php echo $review_row['brandschutzwart'] ? 'Ja' : 'Nein'; ?>
-                                                </span>
-                                            </p>
-                                            <p><strong>Sprinklerwart:</strong>
-                                                <span class="badge <?php echo $review_row['sprinklerwart'] ? 'bg-success' : 'bg-secondary'; ?>">
-                                                    <?php echo $review_row['sprinklerwart'] ? 'Ja' : 'Nein'; ?>
-                                                </span>
-                                            </p>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <p><strong>Ersthelfer:</strong>
-                                                <span class="badge <?php echo $review_row['ersthelfer'] ? 'bg-success' : 'bg-secondary'; ?>">
-                                                    <?php echo $review_row['ersthelfer'] ? 'Ja' : 'Nein'; ?>
-                                                </span>
-                                            </p>
-                                            <p><strong>Sicherheitsvertrauensperson:</strong>
-                                                <span class="badge <?php echo $review_row['svp'] ? 'bg-success' : 'bg-secondary'; ?>">
-                                                    <?php echo $review_row['svp'] ? 'Ja' : 'Nein'; ?>
-                                                </span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <p><strong>Trainertätigkeiten:</strong>
-                                            <span class="badge <?php echo $review_row['trainertaetigkeiten'] ? 'bg-success' : 'bg-secondary'; ?>">
-                                                <?php echo $review_row['trainertaetigkeiten'] ? 'Ja' : 'Nein'; ?>
-                                            </span>
-                                        </p>
-                                        <?php if ($review_row['trainertaetigkeiten_kommentar']): ?>
-                                            <div class="alert alert-info p-2">
-                                                <small><strong>Kommentar zu Trainertätigkeiten:</strong></small><br>
-                                                <?php echo htmlspecialchars($review_row['trainertaetigkeiten_kommentar']); ?>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div>
-                                        <p><strong>Zufriedenheit:</strong>
-                                            <span class="badge <?php echo $review_row['zufriedenheit'] == 'Zufrieden' ? 'bg-success' : 'bg-warning text-dark'; ?>">
-                                                <?php echo htmlspecialchars($review_row['zufriedenheit']); ?>
-                                            </span>
-                                        </p>
-                                        <?php if ($review_row['zufriedenheit'] == 'Unzufrieden' && $review_row['unzufriedenheit_grund']): ?>
-                                            <div class="alert alert-warning p-2">
-                                                <small><strong>Gründe für Unzufriedenheit:</strong></small><br>
-                                                <?php echo htmlspecialchars($review_row['unzufriedenheit_grund']); ?>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row mt-4">
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-header bg-light">Anwenderkenntnisse</div>
-                                <div class="card-body">
-                                    <ul class="list-group list-group-flush">
-                                        <?php foreach ($skills as $skill): ?>
-                                            <?php if ($skill['kategorie'] == 'Anwenderkenntnisse'): ?>
-                                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                    <?php echo htmlspecialchars($skill['name']); ?>
-                                                    <span class="badge bg-primary rounded-pill"><?php echo htmlspecialchars($skill['rating']); ?>/9</span>
-                                                </li>
-                                            <?php endif; ?>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-header bg-light">Positionsspezifische Kompetenzen</div>
-                                <div class="card-body">
-                                    <ul class="list-group list-group-flush">
-                                        <?php foreach ($skills as $skill): ?>
-                                            <?php if ($skill['kategorie'] == 'Positionsspezifische Kompetenzen'): ?>
-                                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                    <?php echo htmlspecialchars($skill['name']); ?>
-                                                    <span class="badge bg-primary rounded-pill"><?php echo htmlspecialchars($skill['rating']); ?>/9</span>
-                                                </li>
-                                            <?php endif; ?>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-header bg-light">Führungs- und Persönliche Kompetenzen</div>
-                                <div class="card-body">
-                                    <ul class="list-group list-group-flush">
-                                        <?php foreach ($skills as $skill): ?>
-                                            <?php if ($skill['kategorie'] == 'Führungskompetenzen' || $skill['kategorie'] == 'Persönliche Kompetenzen'): ?>
-                                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                    <?php echo htmlspecialchars($skill['name']); ?>
-                                                    <span class="badge bg-primary rounded-pill"><?php echo htmlspecialchars($skill['rating']); ?>/9</span>
-                                                </li>
-                                            <?php endif; ?>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Keine Bewertungen vorhanden.
-                    </div>
-                <?php endif; ?>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                        <tr>
+                            <th>Art der Ausbildung</th>
+                            <th>Ausbildung</th>
+                            <?php if ($ist_hr): ?>
+                                <th class="text-end">Aktionen</th>
+                            <?php endif; ?>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <?php if (empty($education)): ?>
+                            <tr>
+                                <td colspan="<?php echo $ist_hr ? '3' : '2'; ?>" class="text-center">
+                                    Keine Ausbildungsdaten vorhanden
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($education as $edu): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($edu['education_type']); ?></td>
+                                    <td><?php echo htmlspecialchars($edu['education_field']); ?></td>
+                                    <?php if ($ist_hr): ?>
+                                        <td class="text-end">
+                                            <a href="edit_education.php?id=<?php echo $edu['id']; ?>&employee_id=<?php echo $id; ?>"
+                                               class="btn btn-warning btn-sm">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="delete_education.php?id=<?php echo $edu['id']; ?>&employee_id=<?php echo $id; ?>"
+                                               class="btn btn-danger btn-sm">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </td>
+                                    <?php endif; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+
+        <!-- Weiterbildung -->
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-book me-2"></i>Weiterbildung</h5>
+                <?php if ($ist_hr || $ist_trainingsmanager || $ist_ehs): ?>
+                    <a href="add_training.php?employee_id=<?php echo $id; ?>" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus-circle"></i> Weiterbildung hinzufügen
+                    </a>
+                <?php endif; ?>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Hauptkategorie</th>
+                            <th>Unterkategorie</th>
+                            <th>Name der Weiterbildung</th>
+                            <th>Zeitraum</th>
+                            <th>Einheiten</th>
+                            <?php if ($ist_hr || $ist_trainingsmanager || $ist_ehs): ?>
+                                <th class="text-end">Aktionen</th>
+                            <?php endif; ?>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <?php if (empty($training)): ?>
+                            <tr>
+                                <td colspan="<?php echo ($ist_hr || $ist_trainingsmanager || $ist_ehs) ? '7' : '6'; ?>"
+                                    class="text-center">
+                                    Keine Weiterbildungen vorhanden
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($training as $train): ?>
+                                <tr>
+                                    <td>
+                                    <span class="badge bg-secondary">
+                                        <?php echo htmlspecialchars($train['display_id'] ?? $train['training_id']); ?>
+                                    </span>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($train['main_category_name']); ?></td>
+                                    <td><?php echo htmlspecialchars($train['sub_category_name'] ?? '—'); ?></td>
+                                    <td><?php echo htmlspecialchars($train['training_name']); ?></td>
+                                    <td>
+                                        <?php
+                                        $training_date = htmlspecialchars(date('d.m.Y', strtotime($train['start_date'])));
+                                        if ($train['start_date'] != $train['end_date']) {
+                                            $training_date .= ' - ' . htmlspecialchars(date('d.m.Y', strtotime($train['end_date'])));
+                                        }
+                                        echo $training_date;
+                                        ?>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($train['training_units']); ?></td>
+                                    <?php if ($ist_hr || $ist_trainingsmanager || $ist_ehs): ?>
+                                        <td class="text-end">
+                                            <a href="edit_training.php?id=<?php echo $train['training_id']; ?>&employee_id=<?php echo $id; ?>"
+                                               class="btn btn-warning btn-sm">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="#"
+                                               class="btn btn-danger btn-sm delete-training-btn"
+                                               data-training-id="<?php echo $train['training_id']; ?>"
+                                               data-training-display-id="<?php echo htmlspecialchars($train['display_id'] ?? $train['training_id']); ?>"
+                                               data-training-name="<?php echo htmlspecialchars($train['training_name']); ?>"
+                                               data-training-date="<?php echo $training_date; ?>"
+                                               data-delete-url="delete_training.php?id=<?php echo $train['training_id']; ?>&employee_id=<?php echo $id; ?>">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </td>
+                                    <?php endif; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mitarbeitergespräch -->
+        <?php if (!$ist_trainingsmanager && !$ist_ehs && !$ist_smstv): ?>
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-chat-text me-2"></i>
+                        <?php if (isset($review_row) && isset($review_row['date'])): ?>
+                            Letztes Mitarbeitergespräch am <?php echo date("d.m.Y", strtotime($review_row['date'])); ?>
+                        <?php else: ?>
+                            Mitarbeitergespräch
+                        <?php endif; ?>
+                    </h5>
+                    <?php if ($ist_hr): ?>
+                        <a href="history.php?employee_id=<?php echo htmlspecialchars($id); ?>"
+                           class="btn btn-info btn-sm">
+                            <i class="bi bi-clock-history"></i> Gespräch-History
+                        </a>
+                    <?php endif; ?>
+                </div>
+                <div class="card-body">
+                    <?php if (isset($review_row)): ?>
+                        <p class="mb-3">
+                            <span class="badge bg-info">Durchgeführt von: <?php echo htmlspecialchars($reviewer_name); ?></span>
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header bg-light">Rückmeldungen</div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <h6>Rückblick:</h6>
+                                            <p><?php echo htmlspecialchars($review_row['rueckblick']); ?></p>
+                                        </div>
+                                        <div class="mb-3">
+                                            <h6>Entwicklung:</h6>
+                                            <p><?php echo htmlspecialchars($review_row['entwicklung']); ?></p>
+                                        </div>
+                                        <div>
+                                            <h6>Feedback:</h6>
+                                            <p><?php echo htmlspecialchars($review_row['feedback']); ?></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header bg-light">Status und Zufriedenheit</div>
+                                    <div class="card-body">
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <p><strong>Brandschutzwart:</strong>
+                                                    <span class="badge <?php echo $review_row['brandschutzwart'] ? 'bg-success' : 'bg-secondary'; ?>">
+                                                    <?php echo $review_row['brandschutzwart'] ? 'Ja' : 'Nein'; ?>
+                                                </span>
+                                                </p>
+                                                <p><strong>Sprinklerwart:</strong>
+                                                    <span class="badge <?php echo $review_row['sprinklerwart'] ? 'bg-success' : 'bg-secondary'; ?>">
+                                                    <?php echo $review_row['sprinklerwart'] ? 'Ja' : 'Nein'; ?>
+                                                </span>
+                                                </p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <p><strong>Ersthelfer:</strong>
+                                                    <span class="badge <?php echo $review_row['ersthelfer'] ? 'bg-success' : 'bg-secondary'; ?>">
+                                                    <?php echo $review_row['ersthelfer'] ? 'Ja' : 'Nein'; ?>
+                                                </span>
+                                                </p>
+                                                <p><strong>Sicherheitsvertrauensperson:</strong>
+                                                    <span class="badge <?php echo $review_row['svp'] ? 'bg-success' : 'bg-secondary'; ?>">
+                                                    <?php echo $review_row['svp'] ? 'Ja' : 'Nein'; ?>
+                                                </span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <p><strong>Trainertätigkeiten:</strong>
+                                                <span class="badge <?php echo $review_row['trainertaetigkeiten'] ? 'bg-success' : 'bg-secondary'; ?>">
+                                                <?php echo $review_row['trainertaetigkeiten'] ? 'Ja' : 'Nein'; ?>
+                                            </span>
+                                            </p>
+                                            <?php if ($review_row['trainertaetigkeiten_kommentar']): ?>
+                                                <div class="alert alert-info p-2">
+                                                    <small><strong>Kommentar zu Trainertätigkeiten:</strong></small><br>
+                                                    <?php echo htmlspecialchars($review_row['trainertaetigkeiten_kommentar']); ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div>
+                                            <p><strong>Zufriedenheit:</strong>
+                                                <span class="badge <?php echo $review_row['zufriedenheit'] == 'Zufrieden' ? 'bg-success' : 'bg-warning text-dark'; ?>">
+                                                <?php echo htmlspecialchars($review_row['zufriedenheit']); ?>
+                                            </span>
+                                            </p>
+                                            <?php if ($review_row['zufriedenheit'] == 'Unzufrieden' && $review_row['unzufriedenheit_grund']): ?>
+                                                <div class="alert alert-warning p-2">
+                                                    <small><strong>Gründe für Unzufriedenheit:</strong></small><br>
+                                                    <?php echo htmlspecialchars($review_row['unzufriedenheit_grund']); ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-4">
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header bg-light">Anwenderkenntnisse</div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush">
+                                            <?php foreach ($skills as $skill): ?>
+                                                <?php if ($skill['kategorie'] == 'Anwenderkenntnisse'): ?>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <?php echo htmlspecialchars($skill['name']); ?>
+                                                        <span class="badge bg-primary rounded-pill"><?php echo htmlspecialchars($skill['rating']); ?>/9</span>
+                                                    </li>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header bg-light">Positionsspezifische Kompetenzen</div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush">
+                                            <?php foreach ($skills as $skill): ?>
+                                                <?php if ($skill['kategorie'] == 'Positionsspezifische Kompetenzen'): ?>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <?php echo htmlspecialchars($skill['name']); ?>
+                                                        <span class="badge bg-primary rounded-pill"><?php echo htmlspecialchars($skill['rating']); ?>/9</span>
+                                                    </li>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header bg-light">Führungs- und Persönliche Kompetenzen</div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush">
+                                            <?php foreach ($skills as $skill): ?>
+                                                <?php if ($skill['kategorie'] == 'Führungskompetenzen' || $skill['kategorie'] == 'Persönliche Kompetenzen'): ?>
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <?php echo htmlspecialchars($skill['name']); ?>
+                                                        <span class="badge bg-primary rounded-pill"><?php echo htmlspecialchars($skill['rating']); ?>/9</span>
+                                                    </li>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Keine Bewertungen vorhanden.
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
     <?php endif; ?>
 </div>
 
@@ -1074,7 +1099,8 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
                     <h5 class="modal-title" id="archiveModalLabel">
                         <i class="bi bi-archive me-2"></i>Mitarbeiter archivieren
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
                 </div>
                 <form action="archive_employee.php" method="POST">
                     <div class="modal-body">
@@ -1082,10 +1108,13 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
 
                         <div class="alert alert-warning">
                             <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            <strong>Achtung!</strong> Sie sind dabei, <?php echo htmlspecialchars($row['name']); ?> zu archivieren.
+                            <strong>Achtung!</strong> Sie sind dabei, <?php echo htmlspecialchars($row['name']); ?> zu
+                            archivieren.
                             <p class="mb-0 mt-2">
-                                Dies sollte nur für Mitarbeiter durchgeführt werden, die das Unternehmen verlassen haben.
-                                Archivierte Mitarbeiter werden nicht gelöscht, aber sie werden aus den aktiven Listen entfernt.
+                                Dies sollte nur für Mitarbeiter durchgeführt werden, die das Unternehmen verlassen
+                                haben.
+                                Archivierte Mitarbeiter werden nicht gelöscht, aber sie werden aus den aktiven Listen
+                                entfernt.
                             </p>
                         </div>
 
@@ -1123,7 +1152,7 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
 <script src="assets/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="employee-scripts.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Photo preview functionality
         const photoInput = document.getElementById('employee_photo');
         const photoPreview = document.getElementById('photoPreview');
@@ -1133,11 +1162,11 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
         const photoUploadMessage = document.getElementById('photoUploadMessage');
 
         if (photoInput) {
-            photoInput.addEventListener('change', function() {
+            photoInput.addEventListener('change', function () {
                 if (this.files && this.files[0]) {
                     const reader = new FileReader();
 
-                    reader.onload = function(e) {
+                    reader.onload = function (e) {
                         // Create or show image preview
                         if (!photoPreview) {
                             // Create image if it doesn't exist
@@ -1173,7 +1202,7 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
 
         // Handle remove photo checkbox
         if (removePhotoCheckbox) {
-            removePhotoCheckbox.addEventListener('change', function() {
+            removePhotoCheckbox.addEventListener('change', function () {
                 if (this.checked) {
                     // Disable file input
                     if (photoInput) {
@@ -1222,7 +1251,7 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
         const photoUploadForm = document.getElementById('photoUploadForm');
 
         if (savePhotoBtn && photoUploadForm) {
-            savePhotoBtn.addEventListener('click', function() {
+            savePhotoBtn.addEventListener('click', function () {
                 const formData = new FormData(photoUploadForm);
 
                 // Show loading state

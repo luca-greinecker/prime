@@ -486,7 +486,7 @@ if (!defined('ACCESS_CONTROL_INCLUDED')) {
         if (!$me) {
             return false;
         }
-        if (ist_admin() || hat_zugriff_auf_hr() || ist_trainingsmanager() || ist_ehs() || ist_werksleiter()) {
+        if (ist_admin() || hat_zugriff_auf_hr() || ist_trainingsmanager() || ist_ehs() || ist_werksleiter() || ist_empfang()) {
             return true;
         }
         if ($me === $mitarbeiterId) {
@@ -536,6 +536,14 @@ if (!defined('ACCESS_CONTROL_INCLUDED')) {
     function pruefe_admin_oder_hr_zugriff(): void
     {
         if (!ist_admin() && !ist_werksleiter() && !ist_it() && !hat_zugriff_auf_hr()) {
+            header('Location: access_denied.php');
+            exit;
+        }
+    }
+
+    function pruefe_admin_oder_hr_oder_empfang_zugriff(): void
+    {
+        if (!ist_admin() && !ist_werksleiter() && !ist_it() && !ist_empfang() && !hat_zugriff_auf_hr()) {
             header('Location: access_denied.php');
             exit;
         }

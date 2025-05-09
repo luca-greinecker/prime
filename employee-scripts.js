@@ -36,7 +36,9 @@ document.addEventListener('DOMContentLoaded', function () {
         isTrainingsmanager: document.body.dataset.isTrainingsmanager === 'true',
         isEhsmanager: document.body.dataset.isEhsmanager === 'true',
         isHr: document.body.dataset.isHr === 'true',
-        isSm: document.body.dataset.isSm === 'true'
+        isSm: document.body.dataset.isSm === 'true',
+        isSmstv: document.body.dataset.isSmstv === 'true',
+        isEmpfang: document.body.dataset.isEmpfang === 'true'
     };
 
     function updateAreaOptions() {
@@ -137,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function toggleManagerFieldsNoSalary() {
-        if (config.isTrainingsmanager || config.isEhsmanager) {
+        if (config.isTrainingsmanager || config.isEhsmanager || config.isEmpfang) {
             if (elements.productionFields) elements.productionFields.style.display = 'none';
             if (elements.techFields) elements.techFields.style.display = 'none';
             if (elements.generalZulage) elements.generalZulage.style.display = 'none';
@@ -148,7 +150,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!elements.lohnschemaSelect) return;
         const selectedLohnschema = elements.lohnschemaSelect.value;
         toggleManagerFieldsNoSalary();
-        if (!config.isTrainingsmanager && !config.isEhsmanager) {
+        if (!config.isTrainingsmanager && !config.isEhsmanager && !config.isEmpfang) {
             if (elements.productionFields) {
                 elements.productionFields.style.display = (selectedLohnschema === 'Produktion') ? 'block' : 'none';
             }
@@ -253,7 +255,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('lohnschema'),
                 document.getElementById('gruppe'),
                 document.getElementById('ln_zulage'),
-                document.getElementById('badge_id'),
                 document.getElementById('phone_number'),
                 document.getElementById('leasing'),
                 document.getElementById('ersthelfer'),
@@ -290,9 +291,40 @@ document.addEventListener('DOMContentLoaded', function () {
         if (elements.areaSelect) {
             elements.areaSelect.disabled = !(config.isHr || config.isSm);
         }
+
+        // Spezielle Behandlung für Empfangsmitarbeiter - können nur badge_id bearbeiten
+        if (config.isEmpfang && !config.isHr) {
+            const badgeIdField = document.getElementById('badge_id');
+            if (badgeIdField) {
+                badgeIdField.disabled = false;
+            }
+
+            // Alle anderen Felder deaktivieren
+            const allInputs = document.querySelectorAll('input, select, textarea');
+            allInputs.forEach(input => {
+                if (input.id !== 'badge_id' && input.type !== 'hidden' && input.id !== 'employee_photo' && input.id !== 'remove_photo') {
+                    input.disabled = true;
+                }
+            });
+        }
     }
 
     function validateForm(event) {
+        // Wenn es sich um einen Empfangsmitarbeiter handelt, müssen wir nur die badge_id validieren
+        if (config.isEmpfang && !config.isHr) {
+            const badgeIdField = document.getElementById('badge_id');
+            if (badgeIdField && (!badgeIdField.value || isNaN(parseInt(badgeIdField.value)))) {
+                event.preventDefault();
+                showValidationError("Ungültige Ausweisnummer",
+                    "Bitte geben Sie eine gültige Ausweisnummer ein.");
+                badgeIdField.focus();
+                badgeIdField.classList.add('is-invalid');
+                return false;
+            }
+            return true;
+        }
+
+        // Normale Validierung für andere Benutzer
         const gruppeSelect = document.getElementById('gruppe');
         const teamSelect = document.getElementById('crew');
         if (gruppeSelect && teamSelect && gruppeSelect.value === "Schichtarbeit") {
@@ -326,9 +358,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Speichern...';
             }
+
+            // Form-Daten vorbereiten - für Empfangsmitarbeiter nur badge_id mitschicken
+            let formData;
+            if (config.isEmpfang && !config.isHr) {
+                formData = new FormData();
+                formData.append('id', form.querySelector('input[name="id"]').value);
+                formData.append('badge_id', form.querySelector('input[name="badge_id"]').value);
+            } else {
+                formData = new FormData(form);
+            }
+
             fetch('update_employee.php', {
                 method: 'POST',
-                body: new FormData(form)
+                body: formData
             })
                 .then(response => response.text())
                 .then(data => {
@@ -336,7 +379,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     new bootstrap.Modal(elements.resultModal).show();
                     if (submitBtn) {
                         submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="bi bi-save"></i> Änderungen speichern';
+                        submitBtn.innerHTML = '<i class="bi bi-save"></i> ' +
+                            (config.isEmpfang && !config.isHr ? 'Ausweisnummer speichern' : 'Änderungen speichern');
                     }
                 })
                 .catch(error => {
@@ -346,7 +390,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     console.error('Error:', error);
                     if (submitBtn) {
                         submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="bi bi-save"></i> Änderungen speichern';
+                        submitBtn.innerHTML = '<i class="bi bi-save"></i> ' +
+                            (config.isEmpfang && !config.isHr ? 'Ausweisnummer speichern' : 'Änderungen speichern');
                     }
                 });
         });

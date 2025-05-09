@@ -6,6 +6,7 @@
  * Für HR-Benutzer dürfen alle Felder geändert werden, während Schichtmeister
  * die Position und den Status ändern dürfen und Schichtmeister-Stv. sowie
  * Abteilungsleiter (Leiter) nur den Status ändern können.
+ * Empfangsmitarbeiter dürfen nur die Ausweisnummer (badge_id) ändern.
  */
 
 include 'access_control.php';
@@ -16,25 +17,16 @@ pruefe_benutzer_eingeloggt();
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-// Ermitteln, ob der Benutzer HR, Schichtmeister, Schichtmeister-Stv. oder Leiter ist
+// Ermitteln, ob der Benutzer HR, Schichtmeister, Schichtmeister-Stv., Leiter oder Empfang ist
 $ist_hr = ist_hr();
 $ist_sm = ist_sm();
 $ist_smstv = ist_smstv();
 $ist_leiter = ist_leiter();
+$ist_empfang = ist_empfang();
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['id'])) {
     $id = (int)$_POST['id'];
     $position = $_POST['position'] ?? '';
-
-    // Validierung: Bei Schichtarbeit muss ein Team ausgewählt sein
-    $gruppe = $_POST['gruppe'] ?? '---';
-    $crew = $_POST['crew'] ?? '---';
-    if ($gruppe === 'Schichtarbeit' && ($crew === '---' || empty($crew))) {
-        $_SESSION['result_message'] = "Fehler: Bei Schichtarbeit muss ein Team ausgewählt werden!";
-        $_SESSION['result_type'] = "danger";
-        echo '<div class="alert alert-danger">Fehler: Bei Schichtarbeit muss ein Team ausgewählt werden!</div>';
-        exit;
-    }
 
     // Zunächst: Aktuellen Status und Anwesenheit des Mitarbeiters abrufen
     $stmt = $conn->prepare("SELECT anwesend, status, gruppe FROM employees WHERE employee_id = ?");
@@ -53,6 +45,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['id'])) {
 
     // Status-Änderung: Wird nur geändert, wenn der Mitarbeiter nicht anwesend ist
     $status = ($anwesend == 1) ? $current_status : ($_POST['status'] ?? $current_status);
+
+    // Validierung für Schichtarbeit-Team
+    if ($ist_hr || $ist_sm) {
+        $gruppe = $_POST['gruppe'] ?? '---';
+        $crew = $_POST['crew'] ?? '---';
+        if ($gruppe === 'Schichtarbeit' && ($crew === '---' || empty($crew))) {
+            $_SESSION['result_message'] = "Fehler: Bei Schichtarbeit muss ein Team ausgewählt werden!";
+            $_SESSION['result_type'] = "danger";
+            echo '<div class="alert alert-danger">Fehler: Bei Schichtarbeit muss ein Team ausgewählt werden!</div>';
+            exit;
+        }
+    }
 
     if ($ist_hr) {
         $entry_date = $_POST['entry_date'] ?? null;
@@ -162,6 +166,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['id'])) {
             die("Fehler bei der Vorbereitung des UPDATE-Statements (SMStv/Leiter): " . $conn->error);
         }
         $stmt->bind_param("ii", $status, $id);
+    } elseif ($ist_empfang) {
+        // Empfangsmitarbeiter können nur die Ausweisnummer ändern
+        $badge_id = isset($_POST['badge_id']) ? (int)$_POST['badge_id'] : 0;
+
+        $stmt = $conn->prepare("UPDATE employees SET badge_id = ? WHERE employee_id = ?");
+        if (!$stmt) {
+            die("Fehler bei der Vorbereitung des UPDATE-Statements (Empfang): " . $conn->error);
+        }
+        $stmt->bind_param("ii", $badge_id, $id);
     } else {
         header("Location: access_denied.php");
         exit;
