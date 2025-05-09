@@ -599,16 +599,44 @@ $previous_page = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'e
                         wieder einzustellen.
                         <p class="mb-0 mt-2">
                             Der Mitarbeiterstatus wird auf "Aktiv" gesetzt und die Austrittsinformationen werden
-                            gelöscht.
-                            Der Mitarbeiter wird im Onboarding-Prozess erscheinen und muss dort weiter bearbeitet
-                            werden.
+                            gelöscht. <strong>Bitte weisen Sie dem Mitarbeiter eine Ausweisnummer zu.</strong>
                         </p>
                     </div>
+
+                    <!-- Fehlermeldung im Modal anzeigen, wenn vorhanden -->
+                    <?php if (isset($_SESSION['rehire_data']['error'])): ?>
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <?php echo htmlspecialchars($_SESSION['rehire_data']['error']); ?>
+                        </div>
+                    <?php endif; ?>
 
                     <div class="mb-3">
                         <label for="new_entry_date" class="form-label">Neues Eintrittsdatum:</label>
                         <input type="date" class="form-control" id="new_entry_date" name="new_entry_date"
-                               value="<?php echo date('Y-m-d'); ?>" required>
+                               value="<?php echo isset($_SESSION['rehire_data']['new_entry_date']) ?
+                                   htmlspecialchars($_SESSION['rehire_data']['new_entry_date']) : date('Y-m-d'); ?>"
+                               required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="badge_id" class="form-label text-danger">Ausweisnummer: *</label>
+                        <input type="number" class="form-control" id="badge_id" name="badge_id"
+                               value="<?php echo isset($_SESSION['rehire_data']['badge_id']) ?
+                                   htmlspecialchars($_SESSION['rehire_data']['badge_id']) : ''; ?>"
+                               min="1" required>
+                        <div class="form-text">Bitte weisen Sie dem Mitarbeiter eine eindeutige Ausweisnummer zu.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="username" class="form-label text-danger">Benutzername: *</label>
+                        <input type="text" class="form-control" id="username" name="username"
+                               value="<?php echo isset($_SESSION['rehire_data']['username']) ?
+                                   htmlspecialchars($_SESSION['rehire_data']['username']) : ''; ?>"
+                               required>
+                        <div class="form-text">Das Passwort wird auf 'Ball1234' gesetzt. Bitte informieren Sie den
+                            Mitarbeiter.
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -622,7 +650,26 @@ $previous_page = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'e
     </div>
 </div>
 
+<!-- JavaScript um Modal automatisch zu öffnen wenn Fehler aufgetreten ist -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        <?php if (isset($_SESSION['rehire_data']['error'])): ?>
+        // Modal automatisch öffnen, wenn es einen Fehler gab
+        var rehireModal = new bootstrap.Modal(document.getElementById('rehireModal'));
+        rehireModal.show();
+        <?php endif; ?>
+    });
+</script>
+
 <!-- JavaScript -->
 <script src="assets/bootstrap/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+<?php
+// Am Ende der Datei nach dem Modal und JavaScript
+
+// Session-Daten für das Rehire-Modal löschen, nachdem sie verwendet wurden
+if (isset($_SESSION['rehire_data'])) {
+    unset($_SESSION['rehire_data']);
+}
+?>

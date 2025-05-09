@@ -6,7 +6,7 @@ global $conn;
 $stmt = $conn->prepare("
     SELECT employee_id, name, crew, position, bild
     FROM employees
-    WHERE bild <> 'kein-bild.jpg'
+    WHERE bild <> 'kein-bild.jpg' AND status != 9999
     ORDER BY RAND()
     LIMIT 3
 ");

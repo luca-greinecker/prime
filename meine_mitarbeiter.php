@@ -66,6 +66,7 @@ if (!empty($employee_ids)) {
         SELECT employee_id, name, birthdate, entry_date, anwesend, status
         FROM employees
         WHERE employee_id IN ($placeholders)
+        AND status != 9999
         ORDER BY name ASC
     ";
     $stmt = $conn->prepare($query);
@@ -210,6 +211,7 @@ if ($ist_leiter) {
             SELECT employee_id, name, birthdate, entry_date, anwesend, status
             FROM employees
             WHERE employee_id IN ($placeholders)
+            AND status != 9999
             ORDER BY name ASC
         ";
         $stmt = $conn->prepare($query);
@@ -285,6 +287,7 @@ function is_recent($date, $daysBack = 5)
 }
 
 ?>
+
 <!DOCTYPE html>
 <html lang="de">
 <head>

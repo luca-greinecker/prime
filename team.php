@@ -47,6 +47,7 @@ if (strpos($gruppe, 'schichtarbeit') !== false) {
         SELECT name, position, email_business, bild
         FROM employees
         WHERE crew = ?
+          AND status != 9999
           AND (
                LOWER(position) LIKE '%schichtmeister%' 
             OR LOWER(position) LIKE '%tl%'
@@ -72,6 +73,7 @@ foreach ($department_positions as $dept) {
             SELECT name, position, email_business, bild
             FROM employees
             WHERE LOWER(position) LIKE '%$dept%'
+              AND status != 9999
               AND (
                    LOWER(position) LIKE '%tl%'
                 OR LOWER(position) LIKE '%al%'
@@ -103,6 +105,7 @@ if (
         SELECT name, position, email_business, bild
         FROM employees
         WHERE LOWER(position) LIKE '%verwaltung - production manager | bl%'
+          AND status != 9999
     ";
     $stmt = $conn->prepare($sql);
     $stmt->execute();
@@ -121,6 +124,7 @@ if (strpos($position, 'elektrik') !== false || strpos($position, 'mechanik') !==
         SELECT name, position, email_business, bild
         FROM employees
         WHERE LOWER(position) LIKE '%engineering manager%'
+          AND status != 9999
     ";
     $stmt = $conn->prepare($sql);
     $stmt->execute();
@@ -143,6 +147,7 @@ if (
         SELECT name, position, email_business, bild
         FROM employees
         WHERE LOWER(position) LIKE '%quality manager%'
+          AND status != 9999
     ";
     $stmt = $conn->prepare($sql);
     $stmt->execute();
@@ -166,6 +171,7 @@ $hrSql = "
     SELECT name, position, email_business, bild
     FROM employees
     WHERE position REGEXP '[[:<:]]HR[[:>:]]'
+      AND status != 9999
 ";
 // Falls du es case-insensitive willst:
 // "... WHERE position REGEXP '[[:<:]][Hh][Rr][[:>:]]' COLLATE utf8_general_ci'
@@ -178,6 +184,7 @@ while ($m = $hrRes->fetch_assoc()) {
 $stmt->close();
 
 ?>
+
 <!DOCTYPE html>
 <html lang="de">
 <head>

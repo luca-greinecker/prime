@@ -320,7 +320,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script src="assets/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Image preview functionality
     document.addEventListener('DOMContentLoaded', function () {
         const fileInput = document.getElementById('employee_image');
         const previewImage = document.getElementById('previewImage');
@@ -329,20 +328,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const submitButton = document.getElementById('submitButton');
         const form = document.getElementById('onboardingForm');
 
+        // Prüfen, ob bereits ein Bild vorhanden ist
+        const hasExistingImage = <?php echo (!empty($employee['bild']) && $employee['bild'] !== 'kein-bild.jpg') ? 'true' : 'false'; ?>;
+
+        // Variable, die angibt, ob ein neues Bild hochgeladen wurde
         let hasImageSelected = false;
 
-        // Check if form is valid (either file selected or checkbox checked)
-        function validateForm() {
-            return hasImageSelected || skipUploadCheckbox.checked;
+        // Wenn bereits ein Bild vorhanden ist, Fehlermeldung ausblenden
+        if (hasExistingImage) {
+            // Entferne die Fehlermeldung am Seitenanfang (alert-box)
+            const alertBoxes = document.querySelectorAll('.alert');
+            alertBoxes.forEach(box => {
+                if (box.textContent.includes('Bitte laden Sie ein Foto hoch') ||
+                    box.textContent.includes('Im Moment kein Foto verfügbar')) {
+                    box.style.display = 'none';
+                }
+            });
+
+            // Entferne den Hinweistext unter der Checkbox, falls vorhanden
+            const warningTexts = document.querySelectorAll('.form-text.text-danger');
+            warningTexts.forEach(text => {
+                if (text.textContent.includes('Bitte laden Sie ein Foto hoch')) {
+                    text.style.display = 'none';
+                }
+            });
         }
 
+        // Funktion zur Validierung des Formulars
+        function validateForm() {
+            // Das Formular ist gültig, wenn entweder ein neues Bild ausgewählt wurde,
+            // die "kein Foto"-Checkbox aktiviert ist, oder bereits ein Bild existiert
+            return hasImageSelected || skipUploadCheckbox.checked || hasExistingImage;
+        }
+
+        // Event-Listener für Änderungen am Datei-Input
         fileInput.addEventListener('change', function () {
             if (this.files && this.files[0]) {
                 hasImageSelected = true;
                 const reader = new FileReader();
 
                 reader.onload = function (e) {
-                    // Create image if it doesn't exist
+                    // Create or update image
                     if (!previewImage) {
                         const newImage = document.createElement('img');
                         newImage.id = 'previewImage';
@@ -354,6 +380,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         newImage.src = e.target.result;
                     } else {
                         previewImage.src = e.target.result;
+                        previewImage.style.display = 'inline-block';
                     }
 
                     // Hide placeholder if it exists
@@ -371,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
 
-        // Disable file input when skip upload is checked
+        // Event-Listener für die "kein Foto"-Checkbox
         skipUploadCheckbox.addEventListener('change', function () {
             fileInput.disabled = this.checked;
             if (this.checked) {
@@ -388,7 +415,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 // Show image if exists, otherwise show placeholder
-                if (previewImage && previewImage.src) {
+                if (previewImage && previewImage.src && previewImage.src.includes('data:image') ||
+                    (previewImage && previewImage.src && previewImage.src.includes('fotos/'))) {
                     previewImage.style.display = 'inline-block';
                     if (previewPlaceholder) {
                         previewPlaceholder.style.display = 'none';
