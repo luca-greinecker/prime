@@ -86,6 +86,7 @@ $participants_query = "
     JOIN trainings t ON et.training_id = t.id
     JOIN training_main_categories mc ON t.main_category_id = mc.id
     JOIN training_sub_categories sc ON t.sub_category_id = sc.id
+    JOIN employees e ON et.employee_id = e.employee_id AND e.status != 9999
     WHERE mc.name = 'Sicherheit, Gesundheit, Umwelt, Hygiene'
       AND sc.name = 'Sicherheitsschulungen'
       AND t.training_name LIKE ?
@@ -99,7 +100,7 @@ $total_participants = $row['total_participants'];
 $stmt->close();
 
 // Gesamtanzahl aktiver Mitarbeiter
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees");
+$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE status != 9999");
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
@@ -110,7 +111,7 @@ $stmt->close();
 $participation_rate = ($total_employees > 0) ? ($total_participants / $total_employees) * 100 : 0;
 
 // Anzahl der aktiven Ersthelfer
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE ersthelfer = 1");
+$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE ersthelfer = 1 AND status != 9999");
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
@@ -122,7 +123,7 @@ $first_aider_rate = ($total_employees > 0) ? ($total_first_aiders / $total_emplo
 $required_first_aiders = ceil($total_employees * 0.1); // mind. 10%
 
 // Anzahl der Sicherheitsvertrauenspersonen (SVP)
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE svp = 1");
+$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE svp = 1 AND status != 9999");
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
@@ -133,7 +134,7 @@ $stmt->close();
 $stmt = $conn->prepare("
     SELECT employee_id, name, ersthelfer_zertifikat_ablauf, crew, gruppe
     FROM employees
-    WHERE ersthelfer = 1
+    WHERE ersthelfer = 1 AND status != 9999
     ORDER BY ersthelfer_zertifikat_ablauf ASC
 ");
 $stmt->execute();
@@ -145,7 +146,7 @@ $stmt->close();
 $stmt = $conn->prepare("
     SELECT employee_id, name, crew, gruppe, position
     FROM employees
-    WHERE svp = 1
+    WHERE svp = 1 AND status != 9999
     ORDER BY name ASC
 ");
 $stmt->execute();
@@ -155,7 +156,7 @@ $stmt->close();
 
 // Anzahl der anwesenden Ersthelfer heute
 $current_date = date('Y-m-d');
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE ersthelfer = 1 AND anwesend = 1");
+$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE ersthelfer = 1 AND anwesend = 1 AND status != 9999");
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
@@ -163,7 +164,7 @@ $present_first_aiders = $row['total'];
 $stmt->close();
 
 // Anzahl der anwesenden Mitarbeiter heute
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE anwesend = 1");
+$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE anwesend = 1 AND status != 9999");
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
@@ -181,6 +182,7 @@ $stmt = $conn->prepare("
     WHERE ersthelfer = 1 
       AND ersthelfer_zertifikat_ablauf IS NOT NULL
       AND ersthelfer_zertifikat_ablauf <= ?
+      AND status != 9999
 ");
 $stmt->bind_param("s", $three_months_later);
 $stmt->execute();
@@ -203,6 +205,7 @@ $missing_participants_query = "
           AND sc.name = 'Sicherheitsschulungen'
           AND t.training_name LIKE ?
     )
+    AND e.status != 9999
     ORDER BY e.gruppe, e.crew, e.name
 ";
 $stmt = $conn->prepare($missing_participants_query);
@@ -249,6 +252,7 @@ foreach ($missing_participants as $emp) {
 $stmt = $conn->prepare("
     SELECT employee_id, name, ersthelfer, svp, ersthelfer_zertifikat_ablauf, crew, gruppe, position
     FROM employees
+    WHERE status != 9999
     ORDER BY name ASC
 ");
 $stmt->execute();
@@ -267,7 +271,7 @@ foreach ($all_teams as $team) {
                    SUM(CASE WHEN ersthelfer = 1 THEN 1 ELSE 0 END) as first_aiders,
                    SUM(CASE WHEN svp = 1 THEN 1 ELSE 0 END) as svp
             FROM employees
-            WHERE crew = ?
+            WHERE crew = ? AND status != 9999
         ");
         $stmt->bind_param("s", $team);
     } else {
@@ -276,7 +280,7 @@ foreach ($all_teams as $team) {
                    SUM(CASE WHEN ersthelfer = 1 THEN 1 ELSE 0 END) as first_aiders,
                    SUM(CASE WHEN svp = 1 THEN 1 ELSE 0 END) as svp
             FROM employees
-            WHERE gruppe = ?
+            WHERE gruppe = ? AND status != 9999
         ");
         $stmt->bind_param("s", $team);
     }

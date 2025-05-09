@@ -113,10 +113,11 @@ function render_employee_group($conn, $group_name, $positionen, $field, $field_v
     $types = str_repeat('s', count($positionen) + 1);
     $params = array_merge(array($field_value), $positionen);
 
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $stmt = $conn->prepare("
         SELECT employee_id, name, anwesend, position 
         FROM employees 
-        WHERE $field = ? AND position IN ($placeholders) 
+        WHERE $field = ? AND position IN ($placeholders) AND status != 9999 
         ORDER BY 
             CASE 
                 WHEN position = 'Schichtmeister' THEN -1
@@ -221,10 +222,11 @@ function render_other_employees($conn, $field, $field_value, $excluded_positions
     $params = array_merge(array($field_value), $excluded_positions);
     $types = str_repeat('s', count($params));
 
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $stmt = $conn->prepare("
         SELECT employee_id, name, anwesend, position 
         FROM employees 
-        WHERE $field = ? AND (position NOT IN ($placeholders) OR position IS NULL) 
+        WHERE $field = ? AND (position NOT IN ($placeholders) OR position IS NULL) AND status != 9999 
         ORDER BY name ASC
     ");
 
@@ -261,7 +263,8 @@ function render_group_employees($conn, $group)
 {
     echo '<ul class="employee">';
 
-    $stmt = $conn->prepare("SELECT employee_id, name, anwesend FROM employees WHERE gruppe = ? ORDER BY name ASC");
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
+    $stmt = $conn->prepare("SELECT employee_id, name, anwesend FROM employees WHERE gruppe = ? AND status != 9999 ORDER BY name ASC");
     $stmt->bind_param("s", $group);
     $stmt->execute();
     $result = $stmt->get_result();

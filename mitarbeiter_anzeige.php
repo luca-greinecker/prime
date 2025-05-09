@@ -6,14 +6,16 @@ global $conn;
 
 /**
  * Holt drei zufällige Mitarbeiter, die ein Bild haben (nicht "kein-bild.jpg").
+ * Archivierte Mitarbeiter (status = 9999) werden ausgeblendet.
  */
 function getEmployees()
 {
     global $conn;
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $stmt = $conn->prepare("
         SELECT employee_id, name, ind_name, crew, position, bild
         FROM employees
-        WHERE bild <> 'kein-bild.jpg'
+        WHERE bild <> 'kein-bild.jpg' AND status != 9999
         ORDER BY RAND()
         LIMIT 3
     ");

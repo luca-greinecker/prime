@@ -1,5 +1,5 @@
 <?php
-// hr_dashboard.php
+// gespraeche_dashboard.php
 include_once 'access_control.php';
 global $conn;
 
@@ -12,7 +12,7 @@ include_once 'dashboard_helpers.php';
 
 
 /**
- * Erzeugt eine "sichere" ID für Tabs (z. B. ersetzt "/" und Leerzeichen).
+ * Erzeugt eine "sichere" ID für Tabs (z. B. ersetzt "/" und Leerzeichen).
  */
 if (!function_exists('safeTabId')) {
     function safeTabId(string $groupKey): string
@@ -120,6 +120,7 @@ $query = "
     FROM employee_reviews er
     JOIN employees e ON er.employee_id = e.employee_id
     WHERE er.date BETWEEN ? AND ?
+    AND e.status != 9999
 ";
 $stmt = $conn->prepare($query);
 $stmt->bind_param("ss", $start_date, $end_date);
@@ -302,9 +303,10 @@ $talentsGrouped = groupByCategory($talentsResult);
     <div class="bg-primary text-white py-4 rounded mb-4 text-center">
         <h1 class="mb-3 fw-bold">Gespräche-Dashboard – Gesprächsjahr <?php echo $selectedYear; ?></h1>
         <form method="get" class="d-flex justify-content-center align-items-center">
-            <select name="year" id="year" class="form-select w-auto me-2 bg-white text-dark" aria-label="Jahr auswählen">
+            <select name="year" id="year" class="form-select w-auto me-2 bg-white text-dark"
+                    aria-label="Jahr auswählen">
                 <?php foreach ($years as $y): ?>
-                    <option value="<?php echo $y; ?>" <?php if($y === $selectedYear) echo 'selected'; ?>>
+                    <option value="<?php echo $y; ?>" <?php if ($y === $selectedYear) echo 'selected'; ?>>
                         <?php echo $y; ?>
                     </option>
                 <?php endforeach; ?>
@@ -373,13 +375,15 @@ $talentsGrouped = groupByCategory($talentsResult);
             }
             ?>
             <div class="container mt-3">
-<!--
-<h2 class="text-center"><?php /*echo $groupKey; */?> Übersicht</h2>
--->                <div class="row">
+                <!--
+<h2 class="text-center"><?php /*echo $groupKey; */ ?> Übersicht</h2>
+-->
+                <div class="row">
                     <!-- Mitarbeiterzufriedenheit Diagramm (Doughnut) -->
                     <div class="col-md-6 mb-4">
                         <div class="card">
-                            <div class="card-header"><strong>Mitarbeiterzufriedenheit - <?php echo $groupKey; ?></strong></div>
+                            <div class="card-header"><strong>Mitarbeiterzufriedenheit
+                                    - <?php echo $groupKey; ?></strong></div>
                             <div class="card-body">
                                 <canvas id="zufriedenheitChart_<?php echo safeTabId($groupKey); ?>"></canvas>
                             </div>
@@ -388,7 +392,8 @@ $talentsGrouped = groupByCategory($talentsResult);
                     <!-- Gründe Unzufriedenheit Diagramm (Doughnut) -->
                     <div class="col-md-6 mb-4">
                         <div class="card">
-                            <div class="card-header"><strong>Gründe für Unzufriedenheit - <?php echo $groupKey; ?></strong></div>
+                            <div class="card-header"><strong>Gründe für Unzufriedenheit
+                                    - <?php echo $groupKey; ?></strong></div>
                             <div class="card-body">
                                 <canvas id="unzufriedenheitChart_<?php echo safeTabId($groupKey); ?>"></canvas>
                             </div>
@@ -408,7 +413,8 @@ $talentsGrouped = groupByCategory($talentsResult);
                     <!-- Leistungsübersicht Diagramm (Bar Chart) -->
                     <div class="col-md-6 mb-4">
                         <div class="card">
-                            <div class="card-header"><strong>Leistungsübersicht - <?php echo $groupKey; ?></strong></div>
+                            <div class="card-header"><strong>Leistungsübersicht - <?php echo $groupKey; ?></strong>
+                            </div>
                             <div class="card-body">
                                 <canvas id="leistungChart_<?php echo safeTabId($groupKey); ?>"></canvas>
                             </div>

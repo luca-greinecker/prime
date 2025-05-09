@@ -8,6 +8,8 @@
  * - Status 3: Completed (not shown in this view)
  *
  * Permissions are role-based, with different actions available to different user types.
+ *
+ * Archivierte Mitarbeiter (status = 9999) werden in allen Anzeigen ausgeblendet.
  */
 
 include 'access_control.php';
@@ -38,6 +40,7 @@ if (isset($_SESSION['status_message']) && isset($_SESSION['status_type'])) {
 // Status 0: Reception processing
 $employees_status0 = [];
 if (ist_empfang() || ist_hr() || ist_admin()) {
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $stmt = $conn->prepare("
         SELECT 
             e.employee_id, 
@@ -54,6 +57,7 @@ if (ist_empfang() || ist_hr() || ist_admin()) {
             employees e
         WHERE 
             e.onboarding_status = 0
+            AND e.status != 9999
         ORDER BY 
             e.entry_date DESC, e.name
     ");
@@ -68,6 +72,7 @@ if (ist_empfang() || ist_hr() || ist_admin()) {
 // Status 1: HR processing
 $employees_status1 = [];
 if (ist_hr() || ist_admin()) {
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $stmt = $conn->prepare("
         SELECT 
             e.employee_id, 
@@ -82,6 +87,7 @@ if (ist_hr() || ist_admin()) {
             employees e
         WHERE 
             e.onboarding_status = 1
+            AND e.status != 9999
         ORDER BY 
             e.entry_date DESC, e.name
     ");
@@ -96,6 +102,7 @@ if (ist_hr() || ist_admin()) {
 // Combined for the overview
 $all_onboarding = [];
 if (ist_hr() || ist_admin()) {
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $sql = "
         SELECT 
             e.employee_id, 
@@ -110,6 +117,7 @@ if (ist_hr() || ist_admin()) {
             employees e
         WHERE 
             e.onboarding_status IN (0, 1)
+            AND e.status != 9999
         ORDER BY 
             e.onboarding_status, e.entry_date DESC, e.name
     ";

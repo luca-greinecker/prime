@@ -5,6 +5,8 @@
  * Diese Seite steht ausschließlich Admins und HR-Mitarbeitern zur Verfügung.
  * Hier werden die Mitarbeiter in den Teams (z. B. Schicht, Tagschicht, Verwaltung)
  * gruppiert und in entsprechenden Bereichsgruppen angezeigt.
+ *
+ * Archivierte Mitarbeiter (status = 9999) werden in allen Ansichten ausgeblendet.
  */
 
 include 'access_control.php';
@@ -136,7 +138,14 @@ pruefe_admin_oder_hr_oder_empfang_zugriff();
         <div class="row row-cols-7 w-100">
             <?php
             // Prüfen, ob es Mitarbeiter gibt, die keiner Gruppe oder Crew zugeordnet sind
-            $stmt = $conn->prepare("SELECT COUNT(*) as count FROM employees WHERE (crew IS NULL OR crew = '') AND (gruppe IS NULL OR gruppe = '')");
+            // Wichtig: Archivierte Mitarbeiter (status = 9999) werden ausgeblendet
+            $stmt = $conn->prepare("
+            SELECT COUNT(*) as count 
+            FROM employees 
+            WHERE (crew IS NULL OR crew = '') 
+            AND (gruppe IS NULL OR gruppe = '') 
+            AND status != 9999
+        ");
             $stmt->execute();
             $result = $stmt->get_result();
             $row = $result->fetch_assoc();
@@ -162,13 +171,16 @@ pruefe_admin_oder_hr_oder_empfang_zugriff();
                 }
 
                 // Mitarbeiter, die in keiner Kategorie der Teams fallen, unter "Sonstiges"
-                // Bei den Teams werden alle Mitarbeiter festen Bereichen zugeordnet,
-                // daher prüfen wir erst, ob überhaupt Mitarbeiter in "Sonstiges" fallen würden
                 $all_positions = array_merge(...array_values($bereichsgruppen));
+
+                // Prüfen, ob es "Sonstige" Mitarbeiter in diesem Team gibt
+                // Archivierte Mitarbeiter (status = 9999) werden ausgeblendet
                 $stmt = $conn->prepare("
                 SELECT COUNT(*) as count 
                 FROM employees 
-                WHERE crew = ? AND (position NOT IN (" . implode(',', array_fill(0, count($all_positions), '?')) . ") OR position IS NULL)
+                WHERE crew = ? 
+                AND (position NOT IN (" . implode(',', array_fill(0, count($all_positions), '?')) . ") OR position IS NULL)
+                AND status != 9999
             ");
                 $params = array_merge([$team], $all_positions);
                 $types = str_repeat('s', count($params));
@@ -195,22 +207,27 @@ pruefe_admin_oder_hr_oder_empfang_zugriff();
                 echo '<h2>' . htmlspecialchars($group) . '</h2>';
 
                 if ($group === 'Tagschicht') {
+                    // Tagschicht mit ihren Bereichsgruppen anzeigen
                     foreach ($tagschicht_bereichsgruppen as $group_name => $positionen) {
                         render_employee_group($conn, $group_name, $positionen, 'gruppe', $group);
                     }
 
-                    // Bei Tagschicht zeigen wir immer die "Sonstiges"-Kategorie, da hier alle
-                    // verbleibenden Tagschicht-Mitarbeiter angezeigt werden sollen
+                    // Bei Tagschicht zeigen wir die "Sonstiges"-Kategorie für verbleibende Mitarbeiter
                     $all_positions = array_merge(...array_values($tagschicht_bereichsgruppen));
                     render_other_employees($conn, 'gruppe', $group, $all_positions);
-
                 } else {
                     // Für die Gruppe "Verwaltung": einfache Ausgabe aller Mitarbeiter
                     render_group_employees($conn, $group);
 
                     // In der Verwaltung zusätzlich eine Sonstiges-Kategorie für Mitarbeiter ohne Position
-                    // Hier prüfen wir ebenfalls, ob es überhaupt Mitarbeiter in dieser Kategorie gibt
-                    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM employees WHERE gruppe = ? AND position IS NULL");
+                    // Prüfen, ob es Mitarbeiter ohne Position gibt (status != 9999)
+                    $stmt = $conn->prepare("
+                    SELECT COUNT(*) as count 
+                    FROM employees 
+                    WHERE gruppe = ? 
+                    AND position IS NULL 
+                    AND status != 9999
+                ");
                     $stmt->bind_param("s", $group);
                     $stmt->execute();
                     $result = $stmt->get_result();
@@ -221,14 +238,25 @@ pruefe_admin_oder_hr_oder_empfang_zugriff();
                     if ($others_count > 0) {
                         echo '<div class="employee-group sonstiges" data-title="Sonstiges">';
                         echo '<ul class="employee">';
-                        $stmt = $conn->prepare("SELECT employee_id, name, anwesend FROM employees WHERE gruppe = ? AND position IS NULL ORDER BY name ASC");
+
+                        // Mitarbeiter ohne Position anzeigen (status != 9999)
+                        $stmt = $conn->prepare("
+                        SELECT employee_id, name, anwesend 
+                        FROM employees 
+                        WHERE gruppe = ? 
+                        AND position IS NULL 
+                        AND status != 9999 
+                        ORDER BY name ASC
+                    ");
                         $stmt->bind_param("s", $group);
                         $stmt->execute();
                         $result = $stmt->get_result();
+
                         while ($row = $result->fetch_assoc()) {
                             $presentClass = $row['anwesend'] ? 'present' : '';
                             echo '<li class="' . $presentClass . '"><a href="employee_details.php?employee_id=' . htmlspecialchars($row['employee_id']) . '">' . htmlspecialchars($row['name']) . '</a></li>';
                         }
+
                         $stmt->close();
                         echo '</ul>';
                         echo '</div>';
@@ -240,11 +268,13 @@ pruefe_admin_oder_hr_oder_empfang_zugriff();
             ?>
         </div>
     </div>
+
     <div id="popup" class="popup">Änderungen erfolgreich gespeichert</div>
 
     <!-- Lokales Bootstrap 5 JavaScript Bundle -->
     <script src="assets/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Zeigt das Popup für Erfolgsmeldungen an
         function showPopup() {
             var popup = document.getElementById("popup");
             popup.style.display = "block";
@@ -253,10 +283,12 @@ pruefe_admin_oder_hr_oder_empfang_zugriff();
             }, 3000);
         }
 
+        // Zeigt das Popup an, wenn der URL-Parameter 'success' vorhanden ist
         if (new URLSearchParams(window.location.search).has('success')) {
             showPopup();
         }
 
+        // Bootstrap-Dropdown-Initialisierung
         var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
         var dropdownList = dropdownElementList.map(function (dropdownToggleEl) {
             return new bootstrap.Dropdown(dropdownToggleEl);

@@ -7,6 +7,8 @@
  *  - Prüfung, ob Dashboard noch aktiv ist
  *  - Abfragen (UNION) für Weiterbildungen
  *  - Abfragen für Lohnerhöhungen, Zufriedenheit, etc.
+ *
+ * Archivierte Mitarbeiter (status = 9999) werden in allen Abfragen ausgeblendet.
  */
 
 /**
@@ -85,6 +87,7 @@ function holeGespraecheTalentReviews(mysqli $conn, array $unterstellte_mitarbeit
 
     $platzhalter = implode(',', array_fill(0, count($unterstellte_mitarbeiter), '?'));
 
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999) in der Subquery
     $sql = "
         SELECT 
             COUNT(*) AS total_gespraeche,
@@ -95,6 +98,7 @@ function holeGespraecheTalentReviews(mysqli $conn, array $unterstellte_mitarbeit
               SELECT employee_id 
               FROM employees 
               WHERE entry_date <= ?
+              AND status != 9999
           )
     ";
 
@@ -128,6 +132,7 @@ function holeLohnerhoehungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
 
     $platzhalter = implode(',', array_fill(0, count($unterstellte_mitarbeiter), '?'));
 
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999) für alle JOINs
     $sql = "
         SELECT er.employee_id, e.name AS mitarbeiter_name,
                CASE
@@ -144,8 +149,8 @@ function holeLohnerhoehungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
                er.tr_salary_increase_argumentation,
                r.name AS fuehrungskraft_name
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_relevant_for_raise = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -176,13 +181,13 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     $platzhalter = implode(',', array_fill(0, count($unterstellte_mitarbeiter), '?'));
     $num_unions = 13; // Anzahl der UNION-Blöcke
 
-    // Alle 13 Blöcke
+    // Alle 13 Blöcke - MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999) in jedem Block
     $sql = "
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 'Industrievorarbeiter' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_industry_foreman = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -191,8 +196,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 'Industriemeister' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_industry_master = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -201,8 +206,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 'Deutsch' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_german = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -211,8 +216,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 'QS Grundlagen' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_qs_basics = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -221,8 +226,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 'QS Assistent' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_qs_assistant = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -231,8 +236,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 'QS Techniker' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_qs_technician = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -241,8 +246,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 'SPS Steuerung Grundlagen' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_sps_basics = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -251,8 +256,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 'SPS Steuerung Fortgeschrittene' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_sps_advanced = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -261,8 +266,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 'Stapler' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_forklift = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -271,8 +276,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, CONCAT('Sonstiges: ', er.tr_external_training_other_comment) AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_external_training_other = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -281,8 +286,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Interne Weiterbildung' AS typ, 'BEST - Führung' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_internal_training_best_leadership = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -291,8 +296,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Interne Weiterbildung' AS typ, 'JBS Training' AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_internal_training_jbs = 1
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -301,8 +306,8 @@ function holeWeiterbildungen(mysqli $conn, array $unterstellte_mitarbeiter, stri
     (
         SELECT e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, 'Abteilungsorganisierte Weiterbildung' AS typ, er.tr_department_training_comment AS weiterbildung
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE er.tr_department_training = 1
           AND er.tr_department_training_comment IS NOT NULL
           AND er.tr_department_training_comment <> ''
@@ -347,6 +352,7 @@ function holeZufriedenheit(mysqli $conn, array $unterstellte_mitarbeiter, string
 
     $platzhalter = implode(',', array_fill(0, count($unterstellte_mitarbeiter), '?'));
 
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999) in der Subquery
     $sql = "
         SELECT 
             SUM(CASE WHEN zufriedenheit = 'Zufrieden' THEN 1 ELSE 0 END) AS zufrieden,
@@ -355,7 +361,7 @@ function holeZufriedenheit(mysqli $conn, array $unterstellte_mitarbeiter, string
         FROM employee_reviews
         WHERE employee_id IN ($platzhalter)
           AND employee_id IN (
-              SELECT employee_id FROM employees WHERE entry_date <= ?
+              SELECT employee_id FROM employees WHERE entry_date <= ? AND status != 9999
           )
     ";
 
@@ -389,10 +395,11 @@ function holeUnzufriedene(mysqli $conn, array $unterstellte_mitarbeiter, string 
 
     $platzhalter = implode(',', array_fill(0, count($unterstellte_mitarbeiter), '?'));
 
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $sql = "
         SELECT e.name, er.unzufriedenheit_grund
         FROM employee_reviews er
-        LEFT JOIN employees e ON er.employee_id = e.employee_id
+        LEFT JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
         WHERE er.zufriedenheit = 'Unzufrieden'
           AND er.employee_id IN ($platzhalter)
           AND e.entry_date <= ?
@@ -428,26 +435,32 @@ function holeUnzufriedene(mysqli $conn, array $unterstellte_mitarbeiter, string 
  * @param string $cutoff_date Im Format 'YYYY-MM-DD'
  * @return bool True, wenn der Mitarbeiter alt genug ist, sonst false.
  */
-function istMitarbeiterGueltigFuerGespraech(string $entry_date, string $cutoff_date): bool {
+function istMitarbeiterGueltigFuerGespraech(string $entry_date, string $cutoff_date): bool
+{
     return strtotime($entry_date) <= strtotime($cutoff_date);
 }
 
 /**
  * Filtert eine Liste von Mitarbeiter-IDs und gibt nur jene IDs zurück,
  * deren entry_date (in der Tabelle employees) kleiner oder gleich dem Cutoff-Datum ist.
+ * Außerdem werden archivierte Mitarbeiter (status = 9999) ausgeblendet.
  *
  * @param mysqli $conn
  * @param array $employee_ids Array von Mitarbeiter-IDs (int)
  * @param string $cutoff_date Im Format 'YYYY-MM-DD'
  * @return array Gefilterte Mitarbeiter-IDs
  */
-function filterGueltigeMitarbeiterIDs(mysqli $conn, array $employee_ids, string $cutoff_date): array {
+function filterGueltigeMitarbeiterIDs(mysqli $conn, array $employee_ids, string $cutoff_date): array
+{
     if (empty($employee_ids)) {
         return [];
     }
     $placeholders = implode(',', array_fill(0, count($employee_ids), '?'));
     $types = str_repeat('i', count($employee_ids)) . 's';
-    $sql = "SELECT employee_id FROM employees WHERE employee_id IN ($placeholders) AND entry_date <= ?";
+
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
+    $sql = "SELECT employee_id FROM employees WHERE employee_id IN ($placeholders) AND entry_date <= ? AND status != 9999";
+
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         die("Fehler bei filterGueltigeMitarbeiterIDs: " . $conn->error);
@@ -472,7 +485,8 @@ function filterGueltigeMitarbeiterIDs(mysqli $conn, array $employee_ids, string 
  * @param int $year
  * @return array ['start_date' => 'YYYY-MM-DD', 'end_date' => 'YYYY-MM-DD']
  */
-function getReviewPeriodForYear(mysqli $conn, int $year): array {
+function getReviewPeriodForYear(mysqli $conn, int $year): array
+{
     $sql = "SELECT * FROM review_periods WHERE year = ? LIMIT 1";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
@@ -484,19 +498,19 @@ function getReviewPeriodForYear(mysqli $conn, int $year): array {
     $period = $result->fetch_assoc();
     $stmt->close();
     if ($period) {
-        $start_year  = (int)$period['start_year'];
+        $start_year = (int)$period['start_year'];
         $start_month = (int)$period['start_month'];
-        $end_year    = (int)$period['end_year'];
-        $end_month   = (int)$period['end_month'];
-        $end_day     = cal_days_in_month(CAL_GREGORIAN, $end_month, $end_year);
+        $end_year = (int)$period['end_year'];
+        $end_month = (int)$period['end_month'];
+        $end_day = cal_days_in_month(CAL_GREGORIAN, $end_month, $end_year);
         return [
             'start_date' => sprintf('%04d-%02d-01', $start_year, $start_month),
-            'end_date'   => sprintf('%04d-%02d-%02d', $end_year, $end_month, $end_day)
+            'end_date' => sprintf('%04d-%02d-%02d', $end_year, $end_month, $end_day)
         ];
     }
     return [
         'start_date' => "$year-01-01",
-        'end_date'   => "$year-12-31"
+        'end_date' => "$year-12-31"
     ];
 }
 
@@ -510,7 +524,9 @@ function getReviewPeriodForYear(mysqli $conn, int $year): array {
  * @param string $end_date
  * @return mysqli_result
  */
-function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_date) {
+function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_date)
+{
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999) in allen Blöcken
     $unionBlocks = [
         // 1) Industrievorarbeiter
         "(
@@ -518,8 +534,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    'Industrievorarbeiter' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_industry_foreman = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -529,8 +545,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    'Industriemeister' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_industry_master = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -540,8 +556,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    'Deutsch' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_german = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -551,8 +567,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    'QS Grundlagen' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_qs_basics = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -562,8 +578,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    'QS Assistent' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_qs_assistant = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -573,8 +589,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    'QS Techniker' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_qs_technician = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -584,8 +600,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    'SPS Steuerung Grundlagen' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_sps_basics = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -595,8 +611,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    'SPS Steuerung Fortgeschrittene' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_sps_advanced = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -606,8 +622,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    'Stapler' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_forklift = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -617,8 +633,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Externe Weiterbildung' AS typ, 
                    CONCAT('Sonstiges: ', er.tr_external_training_other_comment) AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_external_training_other = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -628,8 +644,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Interne Weiterbildung' AS typ, 
                    'BEST - Führung' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_internal_training_best_leadership = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -639,8 +655,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Interne Weiterbildung' AS typ, 
                    'JBS Training' AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_internal_training_jbs = 1
               AND er.date BETWEEN ? AND ?
         )",
@@ -650,8 +666,8 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
                    r.name AS fuehrungskraft_name, 'Abteilungsorganisierte Weiterbildung' AS typ, 
                    er.tr_department_training_comment AS weiterbildung, er.tr_talent
             FROM employee_reviews er
-            JOIN employees e ON er.employee_id = e.employee_id
-            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+            JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+            LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
             WHERE er.tr_department_training = 1
               AND er.tr_department_training_comment IS NOT NULL
               AND er.tr_department_training_comment <> ''
@@ -684,7 +700,9 @@ function holeWeiterbildungenHR(mysqli $conn, string $start_date, string $end_dat
  * @param string $end_date
  * @return mysqli_result
  */
-function holeLohnerhoehungenHR(mysqli $conn, string $start_date, string $end_date) {
+function holeLohnerhoehungenHR(mysqli $conn, string $start_date, string $end_date)
+{
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $sql = "
         SELECT 
             e.lohnschema,
@@ -706,8 +724,8 @@ function holeLohnerhoehungenHR(mysqli $conn, string $start_date, string $end_dat
             er.tr_salary_increase_argumentation,
             er.tr_performance_assessment
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE e.lohnschema IN ('Produktion','Technik')
           AND er.tr_relevant_for_raise = 1
           AND er.date BETWEEN ? AND ?
@@ -732,12 +750,14 @@ function holeLohnerhoehungenHR(mysqli $conn, string $start_date, string $end_dat
  * @param string $end_date
  * @return mysqli_result
  */
-function holeBesondereLeistungenHR(mysqli $conn, string $start_date, string $end_date) {
+function holeBesondereLeistungenHR(mysqli $conn, string $start_date, string $end_date)
+{
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $sql = "
         SELECT e.lohnschema, e.position, e.crew, e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, er.tr_performance_assessment
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE e.lohnschema IN ('Produktion','Technik')
           AND er.tr_performance_assessment IN ('überdurchschnittlich','Entwicklung')
           AND er.date BETWEEN ? AND ?
@@ -762,12 +782,14 @@ function holeBesondereLeistungenHR(mysqli $conn, string $start_date, string $end
  * @param string $end_date
  * @return mysqli_result
  */
-function holeTalentsHR(mysqli $conn, string $start_date, string $end_date) {
+function holeTalentsHR(mysqli $conn, string $start_date, string $end_date)
+{
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $sql = "
         SELECT e.lohnschema, e.position, e.crew, e.name AS mitarbeiter_name, r.name AS fuehrungskraft_name, er.tr_talent
         FROM employee_reviews er
-        JOIN employees e ON er.employee_id = e.employee_id
-        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id
+        JOIN employees e ON er.employee_id = e.employee_id AND e.status != 9999
+        LEFT JOIN employees r ON er.tr_reviewer_id = r.employee_id AND r.status != 9999
         WHERE e.lohnschema IN ('Produktion','Technik')
           AND er.tr_talent IN ('Aufstrebendes Talent','Fertiges Talent')
           AND er.date BETWEEN ? AND ?
@@ -791,7 +813,8 @@ function holeTalentsHR(mysqli $conn, string $start_date, string $end_date) {
  * @param string $position
  * @return string
  */
-function bereinigePosition($position) {
+function bereinigePosition($position)
+{
     $pos_lower = mb_strtolower($position);
     if (strpos($pos_lower, 'mechanik') !== false) {
         return 'Mechanik';
@@ -812,7 +835,8 @@ function bereinigePosition($position) {
  * @param array $employee Associatives Array mit den Keys "lohnschema" und "position"
  * @return string Kategorie
  */
-function getMitarbeiterKategorie(array $employee): string {
+function getMitarbeiterKategorie(array $employee): string
+{
     if ($employee['lohnschema'] === 'Technik') {
         return 'Technik';
     } elseif ($employee['lohnschema'] === 'Produktion') {

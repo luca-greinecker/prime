@@ -4,6 +4,8 @@
  *
  * Zeigt eine Liste aller Mitarbeiter, die in einem ausgewählten Jahr (Standard: aktuelles Jahr)
  * ein Jubiläum (5, 10, 15 oder 20 Jahre) haben. Mitarbeiter werden nach Gruppe und Crew sortiert ausgegeben.
+ *
+ * Archivierte Mitarbeiter (status = 9999) werden in allen Anzeigen ausgeblendet.
  */
 
 include 'access_control.php';
@@ -28,6 +30,7 @@ foreach ($jubilaeumsjahre as $jahre) {
     $eintrittsjahr = $selected_year - $jahre;
 
     // Abfrage für Mitarbeiter, die im Eintrittsjahr begonnen haben
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $stmt = $conn->prepare("
         SELECT 
             employee_id,
@@ -38,6 +41,7 @@ foreach ($jubilaeumsjahre as $jahre) {
             bild
         FROM employees 
         WHERE YEAR(entry_date) = ?
+        AND status != 9999
         ORDER BY 
             CASE 
                 WHEN gruppe = 'Tagschicht' THEN 1
@@ -337,7 +341,8 @@ $gruppe_icons = [
         <div class="jubilare-grid">
             <?php foreach ($jubilaeumsjahre as $jahre): ?>
                 <div class="jubilaeum-column">
-                    <div class="jubilaeum-header" style="background-color: <?php echo $jubilaeum_config[$jahre]['color']; ?>;">
+                    <div class="jubilaeum-header"
+                         style="background-color: <?php echo $jubilaeum_config[$jahre]['color']; ?>;">
                         <i class="bi bi-<?php echo $jubilaeum_config[$jahre]['icon']; ?>"></i>
                         <h3><?php echo $jubilaeum_config[$jahre]['title']; ?></h3>
 
@@ -357,7 +362,7 @@ $gruppe_icons = [
                             foreach ($gruppen as $gruppe):
                                 $gruppe_mitarbeiter = array_filter(
                                     $jubilare[$jahre],
-                                    function($m) use ($gruppe) {
+                                    function ($m) use ($gruppe) {
                                         return $m['gruppe'] === $gruppe;
                                     }
                                 );
@@ -376,7 +381,7 @@ $gruppe_icons = [
                                             foreach ($teams as $team):
                                                 $team_mitarbeiter = array_filter(
                                                     $gruppe_mitarbeiter,
-                                                    function($m) use ($team) {
+                                                    function ($m) use ($team) {
                                                         return $m['crew'] === $team;
                                                     }
                                                 );
@@ -392,7 +397,8 @@ $gruppe_icons = [
                                                             <?php foreach ($team_mitarbeiter as $mitarbeiter): ?>
                                                                 <li class="mitarbeiter-item">
                                                                     <?php if (!empty($mitarbeiter['bild']) && $mitarbeiter['bild'] !== 'kein-bild.jpg'): ?>
-                                                                        <div class="mitarbeiter-img" style="background-image: url('../mitarbeiter-anzeige/fotos/<?php echo htmlspecialchars($mitarbeiter['bild']); ?>')"></div>
+                                                                        <div class="mitarbeiter-img"
+                                                                             style="background-image: url('../mitarbeiter-anzeige/fotos/<?php echo htmlspecialchars($mitarbeiter['bild']); ?>')"></div>
                                                                     <?php else: ?>
                                                                         <div class="mitarbeiter-placeholder">
                                                                             <i class="bi bi-person-fill"></i>
@@ -405,7 +411,9 @@ $gruppe_icons = [
                                                                     </div>
 
                                                                     <div class="mitarbeiter-actions">
-                                                                        <a href="employee_details.php?employee_id=<?php echo $mitarbeiter['employee_id']; ?>" class="btn btn-sm btn-outline-secondary btn-icon" title="Details anzeigen">
+                                                                        <a href="employee_details.php?employee_id=<?php echo $mitarbeiter['employee_id']; ?>"
+                                                                           class="btn btn-sm btn-outline-secondary btn-icon"
+                                                                           title="Details anzeigen">
                                                                             <i class="bi bi-eye-fill"></i>
                                                                         </a>
                                                                     </div>
@@ -420,7 +428,8 @@ $gruppe_icons = [
                                                 <?php foreach ($gruppe_mitarbeiter as $mitarbeiter): ?>
                                                     <li class="mitarbeiter-item">
                                                         <?php if (!empty($mitarbeiter['bild']) && $mitarbeiter['bild'] !== 'kein-bild.jpg'): ?>
-                                                            <div class="mitarbeiter-img" style="background-image: url('../mitarbeiter-anzeige/fotos/<?php echo htmlspecialchars($mitarbeiter['bild']); ?>')"></div>
+                                                            <div class="mitarbeiter-img"
+                                                                 style="background-image: url('../mitarbeiter-anzeige/fotos/<?php echo htmlspecialchars($mitarbeiter['bild']); ?>')"></div>
                                                         <?php else: ?>
                                                             <div class="mitarbeiter-placeholder">
                                                                 <i class="bi bi-person-fill"></i>
@@ -433,7 +442,9 @@ $gruppe_icons = [
                                                         </div>
 
                                                         <div class="mitarbeiter-actions">
-                                                            <a href="employee_details.php?employee_id=<?php echo $mitarbeiter['employee_id']; ?>" class="btn btn-sm btn-outline-secondary btn-icon" title="Details anzeigen">
+                                                            <a href="employee_details.php?employee_id=<?php echo $mitarbeiter['employee_id']; ?>"
+                                                               class="btn btn-sm btn-outline-secondary btn-icon"
+                                                               title="Details anzeigen">
                                                                 <i class="bi bi-eye-fill"></i>
                                                             </a>
                                                         </div>
@@ -447,7 +458,8 @@ $gruppe_icons = [
                         <?php else: ?>
                             <div class="empty-state">
                                 <i class="bi bi-calendar-x"></i>
-                                <p>Keine Mitarbeiter mit <?php echo $jahre; ?>-jährigem Jubiläum in <?php echo $selected_year; ?></p>
+                                <p>Keine Mitarbeiter mit <?php echo $jahre; ?>-jährigem Jubiläum
+                                    in <?php echo $selected_year; ?></p>
                             </div>
                         <?php endif; ?>
                     </div>

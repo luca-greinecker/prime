@@ -5,6 +5,8 @@
  * TV-Anzeige für das Schichtmeisterbüro. Zeigt aktuelle Schicht- und Tagschicht-Mitarbeiter,
  * ihren Anwesenheits-/Status sowie anwesende Ersthelfer.
  * Daten kommen aus employees, updatelog etc.
+ *
+ * Archivierte Mitarbeiter (status = 9999) werden in allen Anzeigen ausgeblendet.
  */
 
 require_once 'db.php';
@@ -172,11 +174,13 @@ function kuerzeBereich(string $bereich): string
 }
 
 // Anwesende Ersthelfer laden
+// MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
 $sqlErsthelfer = "
     SELECT name, ind_name
     FROM employees
     WHERE ersthelfer = 1
-      AND anwesend   = 1
+      AND anwesend = 1
+      AND status != 9999
     ORDER BY name ASC
 ";
 $resEh = $conn->query($sqlErsthelfer);
@@ -240,11 +244,13 @@ function fetchShiftEmployees(mysqli $conn, string $crew, array $positions): arra
 {
     if (empty($positions)) return [];
     $ph = implode(',', array_fill(0, count($positions), '?'));
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $sql = "
         SELECT name, ind_name, anwesend, status, position, svp
         FROM employees
         WHERE crew=?
           AND position IN ($ph)
+          AND status != 9999
     ";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
@@ -270,11 +276,13 @@ function fetchTagEmployees(mysqli $conn, array $positions): array
 {
     if (empty($positions)) return [];
     $ph = implode(',', array_fill(0, count($positions), '?'));
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $sql = "
         SELECT name, ind_name, anwesend, status, position, svp
         FROM employees
         WHERE gruppe='Tagschicht'
           AND position IN ($ph)
+          AND status != 9999
     ";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
@@ -295,11 +303,13 @@ function fetchTagEmployees(mysqli $conn, array $positions): array
     return $arr;
 }
 
+// MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
 $sqlSonst = "
     SELECT name, ind_name, anwesend, status, position, svp
     FROM employees
     WHERE gruppe='Tagschicht'
       AND position NOT IN ('" . implode("','", array_map('addslashes', $allKnownTagPositions)) . "')
+      AND status != 9999
 ";
 $resSonst = $conn->query($sqlSonst);
 $sonstigesArr = $resSonst->fetch_all(MYSQLI_ASSOC);
@@ -630,9 +640,11 @@ $highlightNextHeader = "background-color:#b2ffff;";
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var carouselElement = document.getElementById('ersthelferCarousel');
-            var carousel = new bootstrap.Carousel(carouselElement, {
-                interval: 5000  // Wechsel alle 5000ms
-            });
+            if (carouselElement) {
+                var carousel = new bootstrap.Carousel(carouselElement, {
+                    interval: 5000  // Wechsel alle 5000ms
+                });
+            }
 
             // Deine Live-Uhr:
             function updateClock() {

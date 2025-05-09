@@ -3,25 +3,33 @@
  * hr_dashboard.php
  *
  * HR-Dashboard mit Kennzahlen zur Personalstruktur, Onboarding, Ausbildung und weiteren HR-Metriken.
+ *
+ * Archivierte Mitarbeiter (status = 9999) werden in allen Anzeigen ausgeblendet.
  */
 
 include 'access_control.php';
+include_once 'dashboard_helpers.php'; // Include Helper-Funktionen
+
 global $conn;
 pruefe_benutzer_eingeloggt();
 pruefe_admin_oder_hr_zugriff();
 
-// Grundlegende Mitarbeiterstatistiken
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees");
+// Gemeinsame WHERE-Bedingung für Nicht-Archivierte
+$active_employees_condition = "WHERE status != 9999";
+
+// Grundlegende Mitarbeiterstatistiken (nur aktive)
+$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees $active_employees_condition");
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
 $total_employees = $row['total'];
 $stmt->close();
 
-// Geschlechterverteilung
+// Geschlechterverteilung (nur aktive)
 $stmt = $conn->prepare("
     SELECT gender, COUNT(*) as count
     FROM employees
+    $active_employees_condition
     GROUP BY gender
 ");
 $stmt->execute();
@@ -33,10 +41,11 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Verteilung nach Gruppen
+// Verteilung nach Gruppen (nur aktive)
 $stmt = $conn->prepare("
     SELECT gruppe, COUNT(*) as count
     FROM employees
+    $active_employees_condition
     GROUP BY gruppe
     ORDER BY count DESC
 ");
@@ -48,11 +57,11 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Verteilung nach Teams (für Schichtarbeit)
+// Verteilung nach Teams (für Schichtarbeit) (nur aktive)
 $stmt = $conn->prepare("
     SELECT crew, COUNT(*) as count
     FROM employees
-    WHERE crew != '---' AND crew != ''
+    $active_employees_condition AND crew != '---' AND crew != ''
     GROUP BY crew
     ORDER BY crew ASC
 ");
@@ -64,11 +73,11 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Onboarding-Statistiken
+// Onboarding-Statistiken (nur aktive)
 $stmt = $conn->prepare("
     SELECT onboarding_status, COUNT(*) as count
     FROM employees
-    WHERE onboarding_status > 0
+    $active_employees_condition AND onboarding_status > 0
     GROUP BY onboarding_status
 ");
 $stmt->execute();
@@ -81,11 +90,11 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Mitarbeiter im Onboarding-Prozess
+// Mitarbeiter im Onboarding-Prozess (nur aktive)
 $stmt = $conn->prepare("
     SELECT employee_id, name, badge_id, gender, birthdate, entry_date, gruppe, crew, position, onboarding_status
     FROM employees
-    WHERE onboarding_status > 0
+    $active_employees_condition AND onboarding_status > 0
     ORDER BY entry_date DESC, name ASC
 ");
 $stmt->execute();
@@ -93,12 +102,12 @@ $result = $stmt->get_result();
 $onboarding_employees = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// Neue Mitarbeiter (eingetreten in den letzten 3 Monaten)
+// Neue Mitarbeiter (eingetreten in den letzten 3 Monaten) (nur aktive)
 $three_months_ago = date('Y-m-d', strtotime('-3 months'));
 $stmt = $conn->prepare("
     SELECT COUNT(*) as count
     FROM employees
-    WHERE entry_date >= ?
+    $active_employees_condition AND entry_date >= ?
 ");
 $stmt->bind_param("s", $three_months_ago);
 $stmt->execute();
@@ -107,11 +116,11 @@ $row = $result->fetch_assoc();
 $new_employees_count = $row['count'];
 $stmt->close();
 
-// Details zu neuen Mitarbeitern
+// Details zu neuen Mitarbeitern (nur aktive)
 $stmt = $conn->prepare("
     SELECT employee_id, name, entry_date, gruppe, crew, position
     FROM employees
-    WHERE entry_date >= ?
+    $active_employees_condition AND entry_date >= ?
     ORDER BY entry_date DESC, name ASC
 ");
 $stmt->bind_param("s", $three_months_ago);
@@ -120,7 +129,7 @@ $result = $stmt->get_result();
 $new_employees = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// Neueinstellungen pro Monat für die letzten 12 Monate
+// Neueinstellungen pro Monat für die letzten 12 Monate (nur aktive)
 $monthly_hires = [];
 for ($i = 11; $i >= 0; $i--) {
     $month_start = date('Y-m-01', strtotime("-$i months"));
@@ -130,7 +139,7 @@ for ($i = 11; $i >= 0; $i--) {
     $stmt = $conn->prepare("
         SELECT COUNT(*) as count
         FROM employees
-        WHERE entry_date BETWEEN ? AND ?
+        $active_employees_condition AND entry_date BETWEEN ? AND ?
     ");
     $stmt->bind_param("ss", $month_start, $month_end);
     $stmt->execute();
@@ -140,7 +149,7 @@ for ($i = 11; $i >= 0; $i--) {
     $stmt->close();
 }
 
-// Altersstruktur
+// Altersstruktur (nur aktive)
 $age_groups = [
     '< 20' => 0,
     '20-29' => 0,
@@ -151,7 +160,7 @@ $age_groups = [
     'Keine Angabe' => 0
 ];
 
-$stmt = $conn->prepare("SELECT birthdate FROM employees WHERE birthdate IS NOT NULL");
+$stmt = $conn->prepare("SELECT birthdate FROM employees $active_employees_condition AND birthdate IS NOT NULL");
 $stmt->execute();
 $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {
@@ -175,15 +184,15 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Mitarbeiter ohne Geburtsdatum
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM employees WHERE birthdate IS NULL");
+// Mitarbeiter ohne Geburtsdatum (nur aktive)
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM employees $active_employees_condition AND birthdate IS NULL");
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
 $age_groups['Keine Angabe'] = $row['count'];
 $stmt->close();
 
-// Betriebszugehörigkeit
+// Betriebszugehörigkeit (nur aktive)
 $tenure_groups = [
     '< 1 Jahr' => 0,
     '1-2 Jahre' => 0,
@@ -194,7 +203,7 @@ $tenure_groups = [
     'Keine Angabe' => 0
 ];
 
-$stmt = $conn->prepare("SELECT entry_date FROM employees WHERE entry_date IS NOT NULL");
+$stmt = $conn->prepare("SELECT entry_date FROM employees $active_employees_condition AND entry_date IS NOT NULL");
 $stmt->execute();
 $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {
@@ -218,19 +227,21 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Mitarbeiter ohne Eintrittsdatum
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM employees WHERE entry_date IS NULL");
+// Mitarbeiter ohne Eintrittsdatum (nur aktive)
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM employees $active_employees_condition AND entry_date IS NULL");
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
 $tenure_groups['Keine Angabe'] = $row['count'];
 $stmt->close();
 
-// Bildungsabschlüsse
+// Bildungsabschlüsse (nur aktive) - mit JOIN zu aktiven Mitarbeitern
 $stmt = $conn->prepare("
-    SELECT education_type, COUNT(*) as count
-    FROM employee_education
-    GROUP BY education_type
+    SELECT ee.education_type, COUNT(*) as count
+    FROM employee_education ee
+    JOIN employees e ON ee.employee_id = e.employee_id
+    WHERE e.status != 9999
+    GROUP BY ee.education_type
     ORDER BY count DESC
 ");
 $stmt->execute();
@@ -241,10 +252,12 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Mitarbeiter mit Bildungsabschlüssen vs. ohne
+// Mitarbeiter mit Bildungsabschlüssen vs. ohne (nur aktive)
 $stmt = $conn->prepare("
-    SELECT COUNT(DISTINCT employee_id) as count
-    FROM employee_education
+    SELECT COUNT(DISTINCT ee.employee_id) as count
+    FROM employee_education ee
+    JOIN employees e ON ee.employee_id = e.employee_id
+    WHERE e.status != 9999
 ");
 $stmt->execute();
 $result = $stmt->get_result();
@@ -254,7 +267,7 @@ $stmt->close();
 
 $employees_without_education = $total_employees - $employees_with_education;
 
-// Ersthelfer und Sicherheitsfunktionen
+// Ersthelfer und Sicherheitsfunktionen (nur aktive)
 $stmt = $conn->prepare("
     SELECT
         SUM(CASE WHEN ersthelfer = 1 THEN 1 ELSE 0 END) as ersthelfer_count,
@@ -262,16 +275,18 @@ $stmt = $conn->prepare("
         SUM(CASE WHEN brandschutzwart = 1 THEN 1 ELSE 0 END) as brandschutzwart_count,
         SUM(CASE WHEN sprinklerwart = 1 THEN 1 ELSE 0 END) as sprinklerwart_count
     FROM employees
+    $active_employees_condition
 ");
 $stmt->execute();
 $result = $stmt->get_result();
 $safety_roles = $result->fetch_assoc();
 $stmt->close();
 
-// Top 5 Positionen
+// Top 5 Positionen (nur aktive)
 $stmt = $conn->prepare("
     SELECT position, COUNT(*) as count
     FROM employees
+    $active_employees_condition
     GROUP BY position
     ORDER BY count DESC
     LIMIT 5
@@ -284,28 +299,29 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Talententwicklung (aus employee_reviews)
-$stmt = $conn->prepare("
-    SELECT tr_talent, COUNT(*) as count
-    FROM employee_reviews
-    WHERE tr_talent IS NOT NULL
-    GROUP BY tr_talent
-    ORDER BY count DESC
-");
-$stmt->execute();
-$result = $stmt->get_result();
-$talent_distribution = [];
-while ($row = $result->fetch_assoc()) {
-    $talent_distribution[$row['tr_talent']] = $row['count'];
-}
-$stmt->close();
+// Talententwicklung (aus employee_reviews) - Nutzung der Helper-Funktion
+// Wir definieren einen Zeitraum, z.B. das aktuelle Jahr
+$current_year = date('Y');
+$period = getReviewPeriodForYear($conn, $current_year);
+$talent_result = holeTalentsHR($conn, $period['start_date'], $period['end_date']);
 
-// Performance-Bewertungen (aus employee_reviews)
+$talent_distribution = [];
+while ($row = $talent_result->fetch_assoc()) {
+    // Hier aggregieren wir nach tr_talent
+    if (!isset($talent_distribution[$row['tr_talent']])) {
+        $talent_distribution[$row['tr_talent']] = 0;
+    }
+    $talent_distribution[$row['tr_talent']]++;
+}
+
+// Performance-Bewertungen (aus employee_reviews) - mit JOIN zu aktiven Mitarbeitern
 $stmt = $conn->prepare("
-    SELECT tr_performance_assessment, COUNT(*) as count
-    FROM employee_reviews
-    WHERE tr_performance_assessment IS NOT NULL
-    GROUP BY tr_performance_assessment
+    SELECT er.tr_performance_assessment, COUNT(*) as count
+    FROM employee_reviews er
+    JOIN employees e ON er.employee_id = e.employee_id
+    WHERE er.tr_performance_assessment IS NOT NULL
+    AND e.status != 9999
+    GROUP BY er.tr_performance_assessment
     ORDER BY count DESC
 ");
 $stmt->execute();
@@ -316,12 +332,14 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Karriereplanung (aus employee_reviews)
+// Karriereplanung (aus employee_reviews) - mit JOIN zu aktiven Mitarbeitern
 $stmt = $conn->prepare("
-    SELECT tr_career_plan, COUNT(*) as count
-    FROM employee_reviews
-    WHERE tr_career_plan IS NOT NULL
-    GROUP BY tr_career_plan
+    SELECT er.tr_career_plan, COUNT(*) as count
+    FROM employee_reviews er
+    JOIN employees e ON er.employee_id = e.employee_id
+    WHERE er.tr_career_plan IS NOT NULL
+    AND e.status != 9999
+    GROUP BY er.tr_career_plan
     ORDER BY count DESC
 ");
 $stmt->execute();
@@ -332,17 +350,20 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Mitarbeiterzufriedenheit (basierend auf dem letzten Review)
+// Mitarbeiterzufriedenheit - Nutzung einer angepassten Version der Helper-Funktion
+// Da die Originaldaten noch ausreichend sind, verwenden wir die vorhandene Abfrage mit JOIN zu aktiven Mitarbeitern
 $stmt = $conn->prepare("
-    SELECT zufriedenheit, COUNT(*) as count
-    FROM employee_reviews
-    WHERE zufriedenheit IS NOT NULL
-    GROUP BY zufriedenheit
+    SELECT er.zufriedenheit, COUNT(*) as count
+    FROM employee_reviews er
+    JOIN employees e ON er.employee_id = e.employee_id
+    WHERE er.zufriedenheit IS NOT NULL
+    AND e.status != 9999
+    GROUP BY er.zufriedenheit
     ORDER BY 
         CASE 
-            WHEN zufriedenheit = 'Zufrieden' THEN 1
-            WHEN zufriedenheit = 'Grundsätzlich zufrieden' THEN 2
-            WHEN zufriedenheit = 'Unzufrieden' THEN 3
+            WHEN er.zufriedenheit = 'Zufrieden' THEN 1
+            WHEN er.zufriedenheit = 'Grundsätzlich zufrieden' THEN 2
+            WHEN er.zufriedenheit = 'Unzufrieden' THEN 3
         END
 ");
 $stmt->execute();
@@ -353,7 +374,7 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Trainingsteilnahmen pro Mitarbeiter
+// Trainingsteilnahmen pro Mitarbeiter - mit JOIN zu aktiven Mitarbeitern
 $stmt = $conn->prepare("
     SELECT 
         e.employee_id, 
@@ -363,6 +384,8 @@ $stmt = $conn->prepare("
         employees e
     LEFT JOIN 
         employee_training et ON e.employee_id = et.employee_id
+    WHERE
+        e.status != 9999
     GROUP BY 
         e.employee_id
     ORDER BY 
@@ -374,7 +397,7 @@ $result = $stmt->get_result();
 $top_training_participation = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// Durchschnittliche Anzahl an Trainings pro Mitarbeiter
+// Durchschnittliche Anzahl an Trainings pro Mitarbeiter - mit JOIN zu aktiven Mitarbeitern
 $stmt = $conn->prepare("
     SELECT 
         AVG(training_count) as avg_trainings
@@ -386,6 +409,8 @@ $stmt = $conn->prepare("
             employees e
         LEFT JOIN 
             employee_training et ON e.employee_id = et.employee_id
+        WHERE
+            e.status != 9999
         GROUP BY 
             e.employee_id
     ) as training_counts
@@ -396,10 +421,11 @@ $row = $result->fetch_assoc();
 $avg_trainings_per_employee = round($row['avg_trainings'], 1);
 $stmt->close();
 
-// Lohnschema-Verteilung
+// Lohnschema-Verteilung (nur aktive)
 $stmt = $conn->prepare("
     SELECT lohnschema, COUNT(*) as count
     FROM employees
+    $active_employees_condition
     GROUP BY lohnschema
     ORDER BY count DESC
 ");
@@ -411,7 +437,7 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Qualifikationsboni-Verteilung
+// Qualifikationsboni-Verteilung (nur aktive)
 $stmt = $conn->prepare("
     SELECT 
         SUM(CASE WHEN pr_lehrabschluss = 1 THEN 1 ELSE 0 END) as lehrabschluss,
@@ -424,17 +450,18 @@ $stmt = $conn->prepare("
         SUM(CASE WHEN tk_qualifikationsbonus_3 = 1 THEN 1 ELSE 0 END) as tk_qual_3,
         SUM(CASE WHEN tk_qualifikationsbonus_4 = 1 THEN 1 ELSE 0 END) as tk_qual_4
     FROM employees
+    $active_employees_condition
 ");
 $stmt->execute();
 $result = $stmt->get_result();
 $boni_distribution = $result->fetch_assoc();
 $stmt->close();
 
-// Gebiet-Zulagen
+// Gebiet-Zulagen (nur aktive)
 $stmt = $conn->prepare("
     SELECT ln_zulage, COUNT(*) as count
     FROM employees
-    WHERE ln_zulage IS NOT NULL
+    $active_employees_condition AND ln_zulage IS NOT NULL
     GROUP BY ln_zulage
     ORDER BY count DESC
 ");
@@ -446,34 +473,39 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// Schulungsbedarf basierend auf employee_reviews
+// Schulungsbedarf - Nutzung der Helper-Funktionen für Weiterbildungen
+// Hier importieren wir die Daten aus der Helper-Funktion und aggregieren sie dann
+$weiterbildungen_result = holeWeiterbildungenHR($conn, $period['start_date'], $period['end_date']);
+
+// Schulungsbedarf basierend auf employee_reviews (mit JOIN zu aktiven Mitarbeitern)
 $stmt = $conn->prepare("
     SELECT 
-        SUM(CASE WHEN tr_action_extra_tasks = 1 THEN 1 ELSE 0 END) as extra_tasks,
-        SUM(CASE WHEN tr_action_on_job_training = 1 THEN 1 ELSE 0 END) as on_job_training,
-        SUM(CASE WHEN tr_action_school_completion = 1 THEN 1 ELSE 0 END) as school_completion,
-        SUM(CASE WHEN tr_action_specialist_knowledge = 1 THEN 1 ELSE 0 END) as specialist_knowledge,
-        SUM(CASE WHEN tr_action_generalist_knowledge = 1 THEN 1 ELSE 0 END) as generalist_knowledge,
-        SUM(CASE WHEN tr_external_training_industry_foreman = 1 THEN 1 ELSE 0 END) as industry_foreman,
-        SUM(CASE WHEN tr_external_training_industry_master = 1 THEN 1 ELSE 0 END) as industry_master,
-        SUM(CASE WHEN tr_external_training_german = 1 THEN 1 ELSE 0 END) as german_training,
-        SUM(CASE WHEN tr_external_training_qs_basics = 1 THEN 1 ELSE 0 END) as qs_basics,
-        SUM(CASE WHEN tr_external_training_qs_assistant = 1 THEN 1 ELSE 0 END) as qs_assistant,
-        SUM(CASE WHEN tr_external_training_qs_technician = 1 THEN 1 ELSE 0 END) as qs_technician,
-        SUM(CASE WHEN tr_external_training_sps_basics = 1 THEN 1 ELSE 0 END) as sps_basics,
-        SUM(CASE WHEN tr_external_training_sps_advanced = 1 THEN 1 ELSE 0 END) as sps_advanced,
-        SUM(CASE WHEN tr_external_training_forklift = 1 THEN 1 ELSE 0 END) as forklift,
-        SUM(CASE WHEN tr_external_training_other = 1 THEN 1 ELSE 0 END) as other_training,
-        SUM(CASE WHEN tr_internal_training_best_leadership = 1 THEN 1 ELSE 0 END) as leadership_training,
-        SUM(CASE WHEN tr_internal_training_jbs = 1 THEN 1 ELSE 0 END) as jbs_training,
-        SUM(CASE WHEN tr_department_training = 1 THEN 1 ELSE 0 END) as department_training
-    FROM employee_reviews
+        SUM(CASE WHEN er.tr_action_extra_tasks = 1 THEN 1 ELSE 0 END) as extra_tasks,
+        SUM(CASE WHEN er.tr_action_on_job_training = 1 THEN 1 ELSE 0 END) as on_job_training,
+        SUM(CASE WHEN er.tr_action_school_completion = 1 THEN 1 ELSE 0 END) as school_completion,
+        SUM(CASE WHEN er.tr_action_specialist_knowledge = 1 THEN 1 ELSE 0 END) as specialist_knowledge,
+        SUM(CASE WHEN er.tr_action_generalist_knowledge = 1 THEN 1 ELSE 0 END) as generalist_knowledge,
+        SUM(CASE WHEN er.tr_external_training_industry_foreman = 1 THEN 1 ELSE 0 END) as industry_foreman,
+        SUM(CASE WHEN er.tr_external_training_industry_master = 1 THEN 1 ELSE 0 END) as industry_master,
+        SUM(CASE WHEN er.tr_external_training_german = 1 THEN 1 ELSE 0 END) as german_training,
+        SUM(CASE WHEN er.tr_external_training_qs_basics = 1 THEN 1 ELSE 0 END) as qs_basics,
+        SUM(CASE WHEN er.tr_external_training_qs_assistant = 1 THEN 1 ELSE 0 END) as qs_assistant,
+        SUM(CASE WHEN er.tr_external_training_qs_technician = 1 THEN 1 ELSE 0 END) as qs_technician,
+        SUM(CASE WHEN er.tr_external_training_sps_basics = 1 THEN 1 ELSE 0 END) as sps_basics,
+        SUM(CASE WHEN er.tr_external_training_sps_advanced = 1 THEN 1 ELSE 0 END) as sps_advanced,
+        SUM(CASE WHEN er.tr_external_training_forklift = 1 THEN 1 ELSE 0 END) as forklift,
+        SUM(CASE WHEN er.tr_external_training_other = 1 THEN 1 ELSE 0 END) as other_training,
+        SUM(CASE WHEN er.tr_internal_training_best_leadership = 1 THEN 1 ELSE 0 END) as leadership_training,
+        SUM(CASE WHEN er.tr_internal_training_jbs = 1 THEN 1 ELSE 0 END) as jbs_training,
+        SUM(CASE WHEN er.tr_department_training = 1 THEN 1 ELSE 0 END) as department_training
+    FROM employee_reviews er
+    JOIN employees e ON er.employee_id = e.employee_id
+    WHERE e.status != 9999
 ");
 $stmt->execute();
 $result = $stmt->get_result();
 $training_needs = $result->fetch_assoc();
 $stmt->close();
-
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -734,7 +766,8 @@ $stmt->close();
                         </span>
                             <small class="text-muted">Männlich</small>
                             <div class="small-percentage">
-                                <?php echo round((($gender_distribution['männlich'] ?? 0) / $total_employees) * 100, 1); ?>%
+                                <?php echo round((($gender_distribution['männlich'] ?? 0) / $total_employees) * 100, 1); ?>
+                                %
                             </div>
                         </div>
                         <div class="col">
@@ -743,7 +776,8 @@ $stmt->close();
                         </span>
                             <small class="text-muted">Weiblich</small>
                             <div class="small-percentage">
-                                <?php echo round((($gender_distribution['weiblich'] ?? 0) / $total_employees) * 100, 1); ?>%
+                                <?php echo round((($gender_distribution['weiblich'] ?? 0) / $total_employees) * 100, 1); ?>
+                                %
                             </div>
                         </div>
                         <div class="col">
@@ -761,8 +795,10 @@ $stmt->close();
                     </div>
                     <div class="mt-auto pt-2">
                         <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-primary" role="progressbar" style="width: <?php echo round((($gender_distribution['männlich'] ?? 0) / $total_employees) * 100, 1); ?>%"></div>
-                            <div class="progress-bar bg-danger" role="progressbar" style="width: <?php echo round((($gender_distribution['weiblich'] ?? 0) / $total_employees) * 100, 1); ?>%"></div>
+                            <div class="progress-bar bg-primary" role="progressbar"
+                                 style="width: <?php echo round((($gender_distribution['männlich'] ?? 0) / $total_employees) * 100, 1); ?>%"></div>
+                            <div class="progress-bar bg-danger" role="progressbar"
+                                 style="width: <?php echo round((($gender_distribution['weiblich'] ?? 0) / $total_employees) * 100, 1); ?>%"></div>
                         </div>
                     </div>
                 </div>

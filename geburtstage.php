@@ -4,6 +4,8 @@
  *
  * Diese Seite zeigt eine Liste aller Mitarbeiter, die im aktuellen Monat Geburtstag haben, inklusive ihres Alters,
  * das sie in diesem Jahr erreichen werden. Nur Administratoren oder HR-Mitarbeiter haben Zugriff auf diese Seite.
+ *
+ * Archivierte Mitarbeiter (status = 9999) werden in allen Anzeigen ausgeblendet.
  */
 
 include 'access_control.php'; // Übernimmt Session-Management und Zugriffskontrolle
@@ -29,6 +31,7 @@ $current_month_name_de = $month_names[intval($current_month)];
 
 // Prepared Statement zum Abruf aller Mitarbeiter, deren Geburtstag im aktuellen Monat liegt
 // Sortierung nach Tag des Geburtstags
+// MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
 $stmt = $conn->prepare("
     SELECT 
         employee_id,
@@ -39,6 +42,7 @@ $stmt = $conn->prepare("
         gruppe
     FROM employees
     WHERE MONTH(birthdate) = ?
+    AND status != 9999
     ORDER BY DAY(birthdate) ASC
 ");
 

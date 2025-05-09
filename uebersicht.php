@@ -4,7 +4,10 @@
  *
  * Diese Seite zeigt eine Übersicht der Mitarbeiter, gruppiert nach Teams und Bereichsgruppen.
  * Sie ist für berechtigte Benutzer (z. B. Admin, HR, Schichtmeister, TL etc.) zugänglich.
- * Alle Abfragen nutzen nun den internen Schlüssel (employee_id) aus der Tabelle employees.
+ * Alle Abfragen nutzen den internen Schlüssel (employee_id) aus der Tabelle employees.
+ *
+ * HINWEIS: Archivierte Mitarbeiter (status = 9999) werden in allen Mitarbeiterübersichten
+ * ausgeblendet, da die Render-Funktionen in team_definitions.php entsprechend angepasst wurden.
  */
 
 include 'access_control.php';
@@ -175,6 +178,8 @@ $additional_groups = ["Tagschicht"];
 
                 // Für jede Bereichsgruppe der Schicht
                 foreach ($bereichsgruppen as $group_name => $positionen) {
+                    // Diese Funktion wurde in team_definitions.php angepasst,
+                    // um archivierte Mitarbeiter (status != 9999) auszufiltern
                     render_employee_group($conn, $group_name, $positionen, 'crew', $team);
                 }
 
@@ -194,15 +199,22 @@ $additional_groups = ["Tagschicht"];
                 if ($group === 'Tagschicht') {
                     // Für jede Bereichsgruppe in der Tagschicht
                     foreach ($tagschicht_bereichsgruppen as $group_name => $positionen) {
+                        // Diese Funktion wurde in team_definitions.php angepasst,
+                        // um archivierte Mitarbeiter (status != 9999) auszufiltern
                         render_employee_group($conn, $group_name, $positionen, 'gruppe', $group);
                     }
 
                     // Bei Tagschicht zeigen wir immer die "Sonstiges"-Kategorie, da hier
                     // alle verbleibenden Tagschicht-Mitarbeiter angezeigt werden sollen
                     $all_positions = array_merge(...array_values($tagschicht_bereichsgruppen));
+
+                    // Diese Funktion wurde in team_definitions.php angepasst,
+                    // um archivierte Mitarbeiter (status != 9999) auszufiltern
                     render_other_employees($conn, 'gruppe', $group, $all_positions);
                 } else {
                     // Für andere Gruppen: Einfache Ausgabe aller Mitarbeiter
+                    // Diese Funktion wurde in team_definitions.php angepasst,
+                    // um archivierte Mitarbeiter (status != 9999) auszufiltern
                     render_group_employees($conn, $group);
                 }
                 echo '</div>';
@@ -216,6 +228,7 @@ $additional_groups = ["Tagschicht"];
     <!-- Lokales Bootstrap 5 JavaScript Bundle -->
     <script src="assets/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Erfolgsmeldung anzeigen, wenn URL-Parameter 'success' vorhanden ist
         function showPopup() {
             var popup = document.getElementById("popup");
             popup.style.display = "block";

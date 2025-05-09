@@ -5,6 +5,8 @@
  * Zeigt eine Übersicht aller Mitarbeiter (jeweils gruppiert nach Führungskraft),
  * bei denen im aktuellen aktiven Zeitraum noch kein Mitarbeitergespräch durchgeführt wurde.
  * Nur für HR oder Admin.
+ *
+ * Archivierte Mitarbeiter (status = 9999) werden in allen Anzeigen ausgeblendet.
  */
 
 include_once 'access_control.php';
@@ -69,10 +71,12 @@ $fuehrungspositionen = [
 $placeholders = implode(',', array_fill(0, count($fuehrungspositionen), '?'));
 $types = str_repeat('s', count($fuehrungspositionen));
 
+// MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
 $sql_manager = "
     SELECT employee_id, name, position, crew
     FROM employees
     WHERE position IN ($placeholders)
+    AND status != 9999
 ";
 $stmt = $conn->prepare($sql_manager);
 $stmt->bind_param($types, ...$fuehrungspositionen);
@@ -97,6 +101,7 @@ foreach ($alle_manager as $manager) {
     $ph = implode(',', array_fill(0, count($unterstellte), '?'));
     $ty = str_repeat('i', count($unterstellte));
 
+    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $sql_offene = "
         SELECT 
             e.employee_id,
@@ -107,6 +112,7 @@ foreach ($alle_manager as $manager) {
         FROM employees e
         WHERE e.employee_id IN ($ph)
           AND e.lohnschema IN ('Produktion','Technik')
+          AND e.status != 9999
           AND e.employee_id NOT IN (
               SELECT employee_id
               FROM employee_reviews
