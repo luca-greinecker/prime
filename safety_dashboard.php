@@ -9,6 +9,8 @@
 // Basis-Files einbinden und Benutzer prüfen
 include 'access_control.php';
 include 'training_functions.php';
+include_once 'safety_dashboard_helpers.php';  // Helper-Funktionen für das Safety-Dashboard
+
 global $conn;
 pruefe_benutzer_eingeloggt();
 pruefe_ehs_zugriff();
@@ -24,289 +26,82 @@ if (isset($_POST['update_employee_safety'])) {
     $svp = isset($_POST['svp']) ? 1 : 0;
     $ersthelfer_zertifikat_ablauf = !empty($_POST['ersthelfer_zertifikat_ablauf']) ? $_POST['ersthelfer_zertifikat_ablauf'] : NULL;
 
-    $stmt = $conn->prepare("
-        UPDATE employees
-        SET ersthelfer = ?,
-            svp = ?,
-            ersthelfer_zertifikat_ablauf = ?
-        WHERE employee_id = ?
-    ");
-    $stmt->bind_param("iisi", $ersthelfer, $svp, $ersthelfer_zertifikat_ablauf, $employee_id);
-
-    if ($stmt->execute()) {
+    if (updateEmployeeSafetyData($conn, $employee_id, $ersthelfer, $svp, $ersthelfer_zertifikat_ablauf)) {
         $success_message = "Die Sicherheitsdaten für den Mitarbeiter wurden erfolgreich aktualisiert.";
     } else {
         $error_message = "Fehler beim Aktualisieren der Daten: " . $conn->error;
     }
-    $stmt->close();
 }
 
 // Aktuelle Quartalsdaten
-$current_year = date('Y');
-$current_quarter = ceil(date('n') / 3);
-$quarter_names = [
-    1 => "Q1/$current_year",
-    2 => "Q2/$current_year",
-    3 => "Q3/$current_year",
-    4 => "Q4/$current_year"
-];
-$current_quarter_name = $quarter_names[$current_quarter];
+$quarter_info = getCurrentQuarterInfo();
+$current_year = $quarter_info['year'];
+$current_quarter = $quarter_info['quarter'];
+$quarter_names = $quarter_info['quarter_names'];
+$current_quarter_name = $quarter_info['current_quarter_name'];
 
 // Sicherheitsschulungen des aktuellen Quartals abrufen
-$security_trainings_query = "
-    SELECT t.id, t.display_id, t.training_name, t.start_date, t.end_date, 
-           COUNT(et.employee_id) AS teilnehmer_anzahl
-    FROM trainings t
-    JOIN training_main_categories mc ON t.main_category_id = mc.id
-    JOIN training_sub_categories sc ON t.sub_category_id = sc.id
-    LEFT JOIN employee_training et ON t.id = et.training_id
-    WHERE mc.name = 'Sicherheit, Gesundheit, Umwelt, Hygiene'
-      AND sc.name = 'Sicherheitsschulungen'
-      AND t.training_name LIKE ?
-    GROUP BY t.id
-    ORDER BY t.start_date DESC
-";
-$search_pattern = "%$current_quarter_name%";
-$stmt = $conn->prepare($security_trainings_query);
-$stmt->bind_param("s", $search_pattern);
-$stmt->execute();
-$result = $stmt->get_result();
-$security_trainings = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$security_trainings = getSecurityTrainings($conn, $current_quarter_name);
 
 // Team-Definitionen
 $teams = ["Team L", "Team M", "Team N", "Team O", "Team P"];
 $departments = ["Tagschicht", "Verwaltung"];
 $tagschicht_areas = ["Elektrik", "Mechanik", "CPO", "Qualitätssicherung", "Sortierung", "Sonstiges"];
 
+// Alle Teams für die Statistiken
+$all_teams = ["Team L", "Team M", "Team N", "Team O", "Team P", "Tagschicht", "Verwaltung"];
+
 // Gesamtanzahl der Teilnehmer an Sicherheitsschulungen im aktuellen Quartal
-$participants_query = "
-    SELECT COUNT(DISTINCT et.employee_id) as total_participants
-    FROM employee_training et
-    JOIN trainings t ON et.training_id = t.id
-    JOIN training_main_categories mc ON t.main_category_id = mc.id
-    JOIN training_sub_categories sc ON t.sub_category_id = sc.id
-    JOIN employees e ON et.employee_id = e.employee_id AND e.status != 9999
-    WHERE mc.name = 'Sicherheit, Gesundheit, Umwelt, Hygiene'
-      AND sc.name = 'Sicherheitsschulungen'
-      AND t.training_name LIKE ?
-";
-$stmt = $conn->prepare($participants_query);
-$stmt->bind_param("s", $search_pattern);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$total_participants = $row['total_participants'];
-$stmt->close();
+$total_participants = getTotalParticipants($conn, $current_quarter_name);
 
 // Gesamtanzahl aktiver Mitarbeiter
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE status != 9999");
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$total_employees = $row['total'];
-$stmt->close();
+$total_employees = getTotalActiveEmployees($conn);
 
 // Berechnung der Teilnahmequote
 $participation_rate = ($total_employees > 0) ? ($total_participants / $total_employees) * 100 : 0;
 
 // Anzahl der aktiven Ersthelfer
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE ersthelfer = 1 AND status != 9999");
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$total_first_aiders = $row['total'];
-$stmt->close();
+$total_first_aiders = getTotalFirstAiders($conn);
 
 // Berechnung der Ersthelfer-Quote (Soll ca. 10% der Belegschaft sein)
 $first_aider_rate = ($total_employees > 0) ? ($total_first_aiders / $total_employees) * 100 : 0;
 $required_first_aiders = ceil($total_employees * 0.1); // mind. 10%
 
 // Anzahl der Sicherheitsvertrauenspersonen (SVP)
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE svp = 1 AND status != 9999");
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$total_svp = $row['total'];
-$stmt->close();
+$total_svp = getTotalSVPs($conn);
 
 // Liste aller Ersthelfer mit Zertifikatsablauf
-$stmt = $conn->prepare("
-    SELECT employee_id, name, ersthelfer_zertifikat_ablauf, crew, gruppe
-    FROM employees
-    WHERE ersthelfer = 1 AND status != 9999
-    ORDER BY ersthelfer_zertifikat_ablauf ASC
-");
-$stmt->execute();
-$result = $stmt->get_result();
-$first_aiders = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$first_aiders = getFirstAiders($conn);
 
 // Liste aller Sicherheitsvertrauenspersonen
-$stmt = $conn->prepare("
-    SELECT employee_id, name, crew, gruppe, position
-    FROM employees
-    WHERE svp = 1 AND status != 9999
-    ORDER BY name ASC
-");
-$stmt->execute();
-$result = $stmt->get_result();
-$svp_list = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$svp_list = getSVPs($conn);
 
 // Anzahl der anwesenden Ersthelfer heute
-$current_date = date('Y-m-d');
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE ersthelfer = 1 AND anwesend = 1 AND status != 9999");
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$present_first_aiders = $row['total'];
-$stmt->close();
+$present_first_aiders = getPresentFirstAiders($conn);
 
 // Anzahl der anwesenden Mitarbeiter heute
-$stmt = $conn->prepare("SELECT COUNT(*) as total FROM employees WHERE anwesend = 1 AND status != 9999");
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$present_employees = $row['total'];
-$stmt->close();
+$present_employees = getPresentEmployees($conn);
 
 // Berechnung der Ersthelfer-Quote der anwesenden Mitarbeiter
 $present_first_aider_rate = ($present_employees > 0) ? ($present_first_aiders / $present_employees) * 100 : 0;
 
 // Ersthelfer, deren Zertifikat in den nächsten 3 Monaten ausläuft
-$three_months_later = date('Y-m-d', strtotime('+3 months'));
-$stmt = $conn->prepare("
-    SELECT COUNT(*) as total 
-    FROM employees 
-    WHERE ersthelfer = 1 
-      AND ersthelfer_zertifikat_ablauf IS NOT NULL
-      AND ersthelfer_zertifikat_ablauf <= ?
-      AND status != 9999
-");
-$stmt->bind_param("s", $three_months_later);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$expiring_certificates = $row['total'];
-$stmt->close();
+$expiring_certificates = getExpiringCertificates($conn, 3);
 
 // Fehlende Teilnehmer für aktuelle Quartalssicherheitsschulung
-$missing_participants_query = "
-    SELECT e.employee_id, e.name, e.crew, e.gruppe, e.position
-    FROM employees e
-    WHERE e.employee_id NOT IN (
-        SELECT DISTINCT et.employee_id
-        FROM employee_training et
-        JOIN trainings t ON et.training_id = t.id
-        JOIN training_main_categories mc ON t.main_category_id = mc.id
-        JOIN training_sub_categories sc ON t.sub_category_id = sc.id
-        WHERE mc.name = 'Sicherheit, Gesundheit, Umwelt, Hygiene'
-          AND sc.name = 'Sicherheitsschulungen'
-          AND t.training_name LIKE ?
-    )
-    AND e.status != 9999
-    ORDER BY e.gruppe, e.crew, e.name
-";
-$stmt = $conn->prepare($missing_participants_query);
-$stmt->bind_param("s", $search_pattern);
-$stmt->execute();
-$result = $stmt->get_result();
-$missing_participants = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$missing_participants = getMissingParticipants($conn, $current_quarter_name);
 
 // Gruppieren der fehlenden Teilnehmer nach Bereich
-$missing_by_group = [];
-foreach ($missing_participants as $emp) {
-    $group = $emp['gruppe'];
-    if (!isset($missing_by_group[$group])) {
-        $missing_by_group[$group] = [];
-    }
-    if ($group === 'Schichtarbeit') {
-        $crew = $emp['crew'];
-        if (!isset($missing_by_group[$group][$crew])) {
-            $missing_by_group[$group][$crew] = [];
-        }
-        $missing_by_group[$group][$crew][] = $emp;
-    } elseif ($group === 'Tagschicht') {
-        $area = 'Sonstiges';  // Standard
-        foreach ($tagschicht_areas as $tagschicht_area) {
-            if (strpos($emp['position'], $tagschicht_area) !== false) {
-                $area = $tagschicht_area;
-                break;
-            }
-        }
-        if (!isset($missing_by_group[$group][$area])) {
-            $missing_by_group[$group][$area] = [];
-        }
-        $missing_by_group[$group][$area][] = $emp;
-    } else {  // Verwaltung
-        if (!isset($missing_by_group[$group]['Alle'])) {
-            $missing_by_group[$group]['Alle'] = [];
-        }
-        $missing_by_group[$group]['Alle'][] = $emp;
-    }
-}
+$missing_by_group = groupMissingParticipants($missing_participants, $tagschicht_areas);
 
 // Liste aller Mitarbeiter für die Ersthelfer/SVP-Verwaltung
-$stmt = $conn->prepare("
-    SELECT employee_id, name, ersthelfer, svp, ersthelfer_zertifikat_ablauf, crew, gruppe, position
-    FROM employees
-    WHERE status != 9999
-    ORDER BY name ASC
-");
-$stmt->execute();
-$result = $stmt->get_result();
-$all_employees = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$all_employees = getAllEmployees($conn);
 
 // Sicherheitsstatistiken pro Team/Bereich
-$all_teams = ["Team L", "Team M", "Team N", "Team O", "Team P", "Tagschicht", "Verwaltung"];
-$team_statistics = [];
-foreach ($all_teams as $team) {
-    $is_crew = in_array($team, ["Team L", "Team M", "Team N", "Team O", "Team P"]);
-    if ($is_crew) {
-        $stmt = $conn->prepare("
-            SELECT COUNT(*) as total_members,
-                   SUM(CASE WHEN ersthelfer = 1 THEN 1 ELSE 0 END) as first_aiders,
-                   SUM(CASE WHEN svp = 1 THEN 1 ELSE 0 END) as svp
-            FROM employees
-            WHERE crew = ? AND status != 9999
-        ");
-        $stmt->bind_param("s", $team);
-    } else {
-        $stmt = $conn->prepare("
-            SELECT COUNT(*) as total_members,
-                   SUM(CASE WHEN ersthelfer = 1 THEN 1 ELSE 0 END) as first_aiders,
-                   SUM(CASE WHEN svp = 1 THEN 1 ELSE 0 END) as svp
-            FROM employees
-            WHERE gruppe = ? AND status != 9999
-        ");
-        $stmt->bind_param("s", $team);
-    }
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
-    $team_statistics[$team] = [
-        'total' => $row['total_members'],
-        'first_aiders' => $row['first_aiders'],
-        'svp' => $row['svp'],
-        'first_aider_rate' => ($row['total_members'] > 0) ? ($row['first_aiders'] / $row['total_members'] * 100) : 0
-    ];
-    $stmt->close();
-}
+$team_statistics = getTeamStatistics($conn, $all_teams);
 
 // Verteilung der Ersthelfer nach Bereich (Schichtarbeit, Tagschicht, Verwaltung)
-$area_distribution = [
-    'Schichtarbeit' => 0,
-    'Tagschicht' => 0,
-    'Verwaltung' => 0
-];
-foreach ($first_aiders as $aider) {
-    if (isset($area_distribution[$aider['gruppe']])) {
-        $area_distribution[$aider['gruppe']]++;
-    }
-}
+$area_distribution = getFirstAiderDistribution($first_aiders);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -320,18 +115,11 @@ foreach ($first_aiders as $aider) {
         /* Basis-Stile für die Karten und Icons */
         .dashboard-card {
             height: 100%;
-            transition: transform 0.2s;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .dashboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
         }
 
         .card-icon {
             font-size: 2.5rem;
-            margin-bottom: 0.5rem;
         }
 
         .alert-badge {
@@ -348,34 +136,12 @@ foreach ($first_aiders as $aider) {
             font-size: 0.8rem;
         }
 
-        .progress {
-            height: 10px;
-            margin-top: 8px;
-        }
-
         .status-indicator {
             width: 15px;
             height: 15px;
             border-radius: 50%;
             display: inline-block;
             margin-right: 5px;
-        }
-
-        .status-indicator.green {
-            background-color: #28a745;
-        }
-
-        .status-indicator.yellow {
-            background-color: #ffc107;
-        }
-
-        .status-indicator.red {
-            background-color: #dc3545;
-        }
-
-        .info-icon {
-            cursor: help;
-            color: #6c757d;
         }
 
         .certificate-expiring {
@@ -425,32 +191,11 @@ foreach ($first_aiders as $aider) {
             background-color: #28a745;
         }
 
-        .badge-count {
-            font-size: 0.8rem;
-        }
-
-        /* Scrollbare Liste für Ersthelfer */
-        .scrollable-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        /* Stil für das Mitarbeiter-Suchfeld */
-        .search-container {
-            position: relative;
-            margin-bottom: 1rem;
-        }
-
         .search-icon {
             position: absolute;
             right: 10px;
             top: 10px;
             color: #6c757d;
-        }
-
-        .missing-employee-list {
-            max-height: 300px;
-            overflow-y: auto;
         }
 
         /* Styles für die Team-Karten */
@@ -523,7 +268,7 @@ foreach ($first_aiders as $aider) {
         <div class="col-md-3">
             <div class="card dashboard-card">
                 <div class="card-body text-center">
-                    <div class="card-icon text-primary">
+                    <div class="card-icon text-primary mb-2">
                         <i class="bi bi-people-fill"></i>
                     </div>
                     <h5 class="card-title">Teilnahme Sicherheitsschulung</h5>
@@ -545,7 +290,7 @@ foreach ($first_aiders as $aider) {
         <div class="col-md-3">
             <div class="card dashboard-card">
                 <div class="card-body text-center">
-                    <div class="card-icon text-success position-relative">
+                    <div class="card-icon text-success position-relative mb-2">
                         <i class="bi bi-bandaid-fill"></i>
                         <?php if ($first_aider_rate < 10): ?>
                             <span class="alert-badge bg-danger">!</span>
@@ -570,7 +315,7 @@ foreach ($first_aiders as $aider) {
         <div class="col-md-3">
             <div class="card dashboard-card">
                 <div class="card-body text-center">
-                    <div class="card-icon text-info position-relative">
+                    <div class="card-icon text-info position-relative mb-2">
                         <i class="bi bi-person-check-fill"></i>
                         <?php if ($present_first_aider_rate < 10): ?>
                             <span class="alert-badge bg-danger">!</span>
@@ -594,7 +339,7 @@ foreach ($first_aiders as $aider) {
         <div class="col-md-3">
             <div class="card dashboard-card">
                 <div class="card-body text-center">
-                    <div class="card-icon text-warning position-relative">
+                    <div class="card-icon text-warning position-relative mb-2">
                         <i class="bi bi-exclamation-triangle-fill"></i>
                         <?php if ($expiring_certificates > 0): ?>
                             <span class="alert-badge bg-danger"><?php echo $expiring_certificates; ?></span>
@@ -787,8 +532,6 @@ foreach ($first_aiders as $aider) {
 
         <!-- Rechte Spalte: Ersthelfer-Zertifikate und SVP -->
         <div class="col-lg-3">
-
-
             <!-- Sicherheitsvertrauenspersonen (SVP) -->
             <div class="card mb-4">
                 <div class="card-header bg-light">
@@ -845,7 +588,8 @@ foreach ($first_aiders as $aider) {
                 </div>
                 <div class="card-body p-0">
                     <!-- Scrollbarer Container für Ersthelfer-Liste -->
-                    <div class="list-group list-group-flush scrollable-list" id="ablaufende-zertifikate">
+                    <div class="list-group list-group-flush overflow-auto" style="max-height: 400px;"
+                         id="ablaufende-zertifikate">
                         <?php foreach ($first_aiders as $aider): ?>
                             <div class="list-group-item list-group-item-action">
                                 <div class="d-flex justify-content-between align-items-center">
@@ -904,11 +648,11 @@ foreach ($first_aiders as $aider) {
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="search-container">
+                <div class="position-relative mb-3">
                     <input type="text" id="employeeSearch" class="form-control" placeholder="Namen eingeben...">
                     <i class="bi bi-search search-icon"></i>
                 </div>
-                <div class="employee-list">
+                <div class="overflow-auto" style="max-height: 500px;">
                     <?php foreach ($all_employees as $emp): ?>
                         <div class="card mb-2 employee-card"
                              data-name="<?php echo strtolower(htmlspecialchars($emp['name'])); ?>">
@@ -1011,24 +755,15 @@ foreach ($first_aiders as $aider) {
                                                     $card_class .= 'verwaltung';
                                                 }
                                                 ?>
-                                                <div class="card <?php echo $card_class; ?>"
-                                                     style="border-left: 4px solid
-                                                     <?php
-                                                     if ($subgroup === 'Team L') echo '#007bff';
-                                                     elseif ($subgroup === 'Team M') echo '#28a745';
-                                                     elseif ($subgroup === 'Team N') echo '#fd7e14';
-                                                     elseif ($subgroup === 'Team O') echo '#6f42c1';
-                                                     elseif ($subgroup === 'Team P') echo '#e83e8c';
-                                                     elseif ($group === 'Tagschicht') echo '#20c997';
-                                                     else echo '#6c757d';
-                                                     ?>;">
+                                                <div class="card <?php echo $card_class; ?>">
                                                     <div class="card-header bg-light">
                                                         <h6 class="mb-0"><?php echo $subgroup; ?> <span
                                                                     class="badge bg-secondary"><?php echo count($employees); ?></span>
                                                         </h6>
                                                     </div>
                                                     <div class="card-body p-0">
-                                                        <div class="list-group list-group-flush missing-employee-list">
+                                                        <div class="list-group list-group-flush overflow-auto"
+                                                             style="max-height: 300px;">
                                                             <?php foreach ($employees as $emp): ?>
                                                                 <div class="list-group-item">
                                                                     <div class="d-flex justify-content-between">
