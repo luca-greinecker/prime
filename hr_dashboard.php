@@ -180,13 +180,8 @@ $training_needs = getTrainingNeeds($conn);
 <?php include 'navbar.php'; ?>
 
 <div class="content container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
         <h1><i class="bi bi-people me-2"></i>HR-Dashboard</h1>
-        <div>
-            <a href="training_overview.php" class="btn btn-outline-primary">
-                <i class="bi bi-mortarboard me-2"></i>Schulungen verwalten
-            </a>
-        </div>
     </div>
 
     <!-- Hauptkennzahlen -->
