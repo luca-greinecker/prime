@@ -503,6 +503,89 @@ if (isset($_SESSION['result_message'])) {
         .remove-trainer:hover {
             color: #bd2130;
         }
+        #trainingInfoModal .modal-body {
+            padding: 20px;
+        }
+
+        .training-info-container h6 {
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: #0d6efd;
+        }
+
+        .training-info-container code {
+            background-color: #f8f9fa;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #0d6efd;
+            font-size: 1.1em;
+        }
+
+        .training-info-container ul {
+            padding-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .training-info-container li {
+            margin-bottom: 5px;
+        }
+
+        /* Styling für Kategorien */
+        .category-items {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .category-item {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .category-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .category-title {
+            font-weight: 600;
+        }
+
+        .category-details {
+            font-size: 0.95em;
+            color: #555;
+            padding-left: 40px;
+        }
+
+        .onedrive-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #0d6efd;
+            margin-top: 15px;
+        }
+
+        .onedrive-section p {
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
@@ -522,9 +605,96 @@ if (isset($_SESSION['result_message'])) {
         <div class="card-body collapse show" id="trainingForm">
             <form action="save_training.php" method="POST">
                 <div class="form-container">
+                    <!-- Button zum Öffnen des Modals -->
                     <div class="step-heading">
                         <div class="step-number">1</div>
                         <h5 class="mb-0">Weiterbildungsinformationen</h5>
+                        <button type="button" class="btn btn-sm btn-outline-info ms-2" data-bs-toggle="modal" data-bs-target="#trainingInfoModal">
+                            <i class="bi bi-info-circle me-1"></i> Weiterbildungsinfo
+                        </button>
+                    </div>
+
+                    <!-- Modal für Weiterbildungsinformationen -->
+                    <div class="modal fade" id="trainingInfoModal" tabindex="-1" aria-labelledby="trainingInfoModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="trainingInfoModalLabel">Informationen zum Weiterbildungssystem</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="training-info-container">
+                                        <div class="categories-section mb-4">
+                                            <h6><i class="bi bi-bookmark-fill me-2"></i>Hauptkategorien & Zuständigkeiten</h6>
+                                            <div class="category-items">
+                                                <div class="category-item">
+                                                    <div class="category-header">
+                                                        <span class="category-badge" style="background-color: #dc3545;">01</span>
+                                                        <span class="category-title">Sicherheit, Gesundheit, Umwelt, Hygiene</span>
+                                                    </div>
+                                                    <div class="category-details">
+                                                        <i class="bi bi-person-badge me-1"></i> <strong>Zuständig:</strong> EHS-Manager (Alexander Karg)
+                                                    </div>
+                                                </div>
+
+                                                <div class="category-item">
+                                                    <div class="category-header">
+                                                        <span class="category-badge" style="background-color: #28a745;">02</span>
+                                                        <span class="category-title">Personal-Entwicklung</span>
+                                                    </div>
+                                                    <div class="category-details">
+                                                        <i class="bi bi-person-badge me-1"></i> <strong>Zuständig:</strong> HR-Abteilung
+                                                    </div>
+                                                </div>
+
+                                                <div class="category-item">
+                                                    <div class="category-header">
+                                                        <span class="category-badge" style="background-color: #9932CC;">03</span>
+                                                        <span class="category-title">Technical Trainings</span>
+                                                    </div>
+                                                    <div class="category-details">
+                                                        <i class="bi bi-person-badge me-1"></i> <strong>Zuständig:</strong> Technical Training Manager (Serkan Yilmaz)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="id-section mb-4">
+                                            <h6><i class="bi bi-upc-scan me-2"></i>ID-Struktur: <code>25-01-02-0001</code></h6>
+                                            <ul>
+                                                <li><strong>JAHR</strong> - aktuelles Jahr (2-stellig)</li>
+                                                <li><strong>HAUPTKATEGORIE</strong> - Code der Hauptkategorie (2-stellig)</li>
+                                                <li><strong>UNTERKATEGORIE</strong> - Code der Unterkategorie (2-stellig)</li>
+                                                <li><strong>EINDEUTIGE NUMMER</strong> - fortlaufende Nummer (4-stellig)</li>
+                                            </ul>
+                                        </div>
+
+                                        <div class="functionality-section mb-4">
+                                            <h6><i class="bi bi-gear-fill me-2"></i>Funktionen dieser Seite</h6>
+                                            <ul>
+                                                <li>Anlegen neuer Weiterbildungen mit Kategorie und Zeitraum</li>
+                                                <li>Zuweisen von Mitarbeitern zu Weiterbildungen</li>
+                                                <li>Bei Technical Trainings (03): Hinzufügen von Trainern</li>
+                                                <li>Anzeige der letzten Weiterbildungen im unteren Bereich</li>
+                                            </ul>
+                                        </div>
+
+                                        <div class="onedrive-section">
+                                            <h6><i class="bi bi-cloud me-2"></i>Dokumentation & Ablage</h6>
+                                            <p>Die eingescannten Schulungsunterlagen werden im OneDrive abgelegt:</p>
+                                            <p class="mb-1">OneDrive > Ball Corporation > 21-Weiterbildungen</p>
+                                            <p>Die Ordnerstruktur im OneDrive entspricht den Hauptkategorien in diesem Tool.</p>
+                                            <div class="alert alert-warning mt-2 mb-0">
+                                                <i class="bi bi-exclamation-triangle me-1"></i> Bei fehlendem Zugriff auf das OneDrive bitte bei der IT melden.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="row">
