@@ -473,7 +473,8 @@ if (!defined('ACCESS_CONTROL_INCLUDED')) {
             || ist_smstv()
             || ist_ehs()
             || ist_trainingsmanager()
-            || ist_leanmanager();
+            || ist_leanmanager()
+            || pruefe_tl_tagschicht_zugriff();
     }
 
     /**
