@@ -156,6 +156,17 @@ $links_menu_items = [
 <link rel="stylesheet" href="assets/fontawesome/css/all.min.css">
 <link rel="icon" href="assets/bilder/ball-logo.ico" type="image/x-icon">
 <style>
+    /* Minimales Custom CSS - hauptsächlich Bootstrap nutzen */
+    :root {
+        --ball-blue: #1140fe;
+        --ball-blue-dark: #0d33cc;
+        --ball-blue-light: #4d6fff;
+        --ball-white: #ffffff;
+        --ball-shadow: rgba(0, 0, 0, 0.1);
+        --ball-highlight: rgba(255, 255, 255, 0.1);
+        --ball-charcoal: #2c3e50;
+    }
+
     .navbar {
         background: linear-gradient(135deg, var(--ball-blue), var(--ball-blue-dark));
         box-shadow: 0 2px 15px var(--ball-shadow);
@@ -173,14 +184,98 @@ $links_menu_items = [
     }
 
     .nav-link {
-        color: var(--ball-white);
+        color: var(--ball-white) !important;
         font-weight: 500;
-        padding: 0.7rem 1rem !important; /* Erhöht von 0.5rem */
+        padding: 0.7rem 1rem !important;
         position: relative;
-        transition: all 0.3s;
+        transition: background-color 0.3s;
         margin: 0 0.1rem;
+        white-space: nowrap;
         border-radius: 4px;
-        white-space: nowrap; /* Verhindert Umbruch bei Text */
+    }
+
+    .nav-link:hover {
+        background-color: var(--ball-highlight);
+    }
+
+    .nav-link::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: 0;
+        height: 2px;
+        background-color: var(--ball-white);
+        transition: width 0.3s;
+        transform: translateX(-50%);
+    }
+
+    .nav-link:hover::after {
+        width: 80%;
+    }
+
+    /* Icon Animation */
+    .nav-link i {
+        transition: transform 0.3s;
+        margin-right: 0.5rem;
+    }
+
+    .nav-link:hover i {
+        transform: scale(1.2);
+    }
+
+    /* Dropdown Anpassungen */
+    .dropdown-menu {
+        border: none;
+        box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+        margin-top: 0.5rem;
+    }
+
+    .dropdown-menu-grid {
+        min-width: 320px;
+        padding: 1rem;
+    }
+
+    .dropdown-menu-grid .dropdown-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+
+    .dropdown-item {
+        transition: all 0.2s;
+    }
+
+    .dropdown-item:hover {
+        background-color: rgba(17, 64, 254, 0.08);
+        color: var(--ball-blue) !important;
+        padding-left: 1.7rem;
+    }
+
+    .dropdown-menu-grid .dropdown-item {
+        border-radius: 6px;
+    }
+
+    .dropdown-menu-grid .dropdown-item:hover {
+        padding-left: 1.2rem;
+    }
+
+    /* Suchfeld Anpassungen */
+    .search-form input {
+        border-radius: 20px 0 0 20px;
+        width: 180px;
+    }
+
+    .search-form button {
+        border-radius: 0 20px 20px 0;
+        background-color: var(--ball-white);
+        color: var(--ball-blue);
+        border: none;
+    }
+
+    .search-form button:hover {
+        background-color: var(--ball-blue-light);
+        color: var(--ball-white);
     }
 
     /* Kompaktere Anzeige bei mittleren Bildschirmen */
@@ -193,148 +288,6 @@ $links_menu_items = [
         .nav-link i {
             margin-right: 0.3rem;
         }
-    }
-
-    .nav-link:hover {
-        background-color: var(--ball-highlight);
-        transform: translateY(-2px);
-    }
-
-    .nav-link::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        width: 0;
-        height: 2px;
-        background-color: var(--ball-white);
-        transition: all 0.3s;
-        transform: translateX(-50%);
-    }
-
-    .nav-link:hover::after {
-        width: 80%;
-    }
-
-    /* Icon styling für Nav-Links */
-    .nav-link i {
-        margin-right: 0.5rem;
-        transition: transform 0.3s;
-    }
-
-    .nav-link:hover i {
-        transform: scale(1.2);
-    }
-
-    /* Dropdown-Styling */
-    .dropdown-menu {
-        background-color: var(--ball-white);
-        border: none;
-        border-radius: 8px;
-        box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
-        margin-top: 0.5rem;
-        padding: 0.5rem 0;
-        overflow: hidden;
-    }
-
-    /* Größere Dropdowns für komplexere Menüs */
-    .dropdown-menu.dropdown-menu-grid {
-        width: auto;
-        min-width: 320px;
-        padding: 1rem;
-    }
-
-    .dropdown-menu-grid .dropdown-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 0.5rem;
-    }
-
-    .dropdown-menu-grid .dropdown-item {
-        padding: 0.6rem 1rem;
-        border-radius: 6px;
-    }
-
-    .dropdown-item {
-        color: var(--ball-charcoal);
-        padding: 0.6rem 1.5rem;
-        transition: all 0.2s;
-        position: relative;
-    }
-
-    .dropdown-item:hover {
-        background-color: rgba(17, 64, 254, 0.08);
-        color: var(--ball-blue) !important;
-        padding-left: 1.7rem;
-    }
-
-    .dropdown-menu-grid .dropdown-item:hover {
-        padding-left: 1.2rem;
-    }
-
-    .dropdown-toggle::after {
-        margin-left: 0.5em;
-        vertical-align: 0.15em;
-    }
-
-    /* Benutzerinfo und Logout-Button */
-    .user-info {
-        font-weight: bold;
-        color: var(--ball-white);
-        display: flex;
-        align-items: center;
-    }
-
-    #date-time {
-        background-color: rgba(255, 255, 255, 0.15); /* Etwas deutlicher */
-        padding: 0.4rem 0.8rem; /* Größer */
-        border-radius: 20px;
-        font-size: 0.95rem; /* Größer */
-        backdrop-filter: blur(5px);
-    }
-
-    .btn-logout {
-        background-color: #dc3545;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 0.45rem 1.2rem; /* Größer */
-        transition: all 0.3s;
-        font-weight: 500;
-        box-shadow: 0 2px 5px rgba(220, 53, 69, 0.4);
-    }
-
-    .btn-logout:hover {
-        background-color: #bd2130;
-        box-shadow: 0 4px 8px rgba(220, 53, 69, 0.6);
-        transform: translateY(-2px);
-    }
-
-    /* Suche Styling */
-    .search-form input {
-        border-radius: 20px 0 0 20px;
-        border: none;
-        padding-left: 1rem;
-        transition: all 0.3s;
-        box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
-        width: 180px; /* Etwas breiter */
-    }
-
-    .search-form input:focus {
-        box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.2);
-    }
-
-    .search-form button {
-        border-radius: 0 20px 20px 0;
-        background-color: var(--ball-white);
-        color: var(--ball-blue);
-        border: none;
-        transition: all 0.3s;
-    }
-
-    .search-form button:hover {
-        background-color: var(--ball-blue-light);
-        color: var(--ball-white);
     }
 
     /* Mobile Navigation */
@@ -355,12 +308,6 @@ $links_menu_items = [
 
         .nav-link {
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 0.8rem 1rem !important;
-        }
-
-        .nav-link:hover {
-            background-color: var(--ball-highlight);
-            transform: none;
         }
 
         .dropdown-menu {
@@ -381,17 +328,12 @@ $links_menu_items = [
 
         .dropdown-item {
             color: var(--ball-white) !important;
-            padding: 0.5rem 1rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .dropdown-item:hover {
             background-color: var(--ball-highlight);
             color: var(--ball-white) !important;
-        }
-
-        .user-info, .search-form, .btn-logout {
-            margin-top: 1rem;
         }
 
         .search-form {
@@ -403,17 +345,14 @@ $links_menu_items = [
         }
     }
 
-    /* Navbar Toggler */
+    /* Navbar Toggler Animation */
     .navbar-toggler {
         border: none;
         padding: 0.5rem;
-        transition: all 0.3s;
-        position: relative;
     }
 
     .navbar-toggler:focus {
         box-shadow: none;
-        outline: none;
     }
 
     .navbar-toggler-icon {
@@ -488,7 +427,7 @@ $links_menu_items = [
                     <?php if ($group['access']): ?>
                         <?php foreach ($group['items'] as $item): ?>
                             <li class="nav-item">
-                                <a class="nav-link text-white" href="<?php echo htmlspecialchars($item['url']); ?>">
+                                <a class="nav-link" href="<?php echo htmlspecialchars($item['url']); ?>">
                                     <i class="fas <?php echo htmlspecialchars($item['icon']); ?> fa-fw"></i>
                                     <?php echo htmlspecialchars($item['title']); ?>
                                 </a>
@@ -499,7 +438,7 @@ $links_menu_items = [
 
                 <?php if ($has_access_to_reception): ?>
                     <li class="nav-item">
-                        <a class="nav-link text-white" href="hr_uebersicht.php">
+                        <a class="nav-link" href="hr_uebersicht.php">
                             <i class="fas fa-users fa-fw"></i> MA-Übersicht
                         </a>
                     </li>
@@ -508,7 +447,7 @@ $links_menu_items = [
                 <!-- HR-Dropdown -->
                 <?php if ($has_access_to_hr): ?>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle text-white" href="#" id="hrDropdown" role="button"
+                        <a class="nav-link dropdown-toggle" href="#" id="hrDropdown" role="button"
                            data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-user-tie fa-fw"></i> HR
                         </a>
@@ -528,7 +467,7 @@ $links_menu_items = [
                     </li>
 
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle text-white"
+                        <a class="nav-link dropdown-toggle"
                            href="#"
                            id="einstellungenDropdown"
                            role="button"
@@ -551,7 +490,7 @@ $links_menu_items = [
 
                 <!-- Info-Dropdown - immer in der Hauptnavigation bei normalen Benutzern -->
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle text-white" href="#" id="infoDropdown" role="button"
+                    <a class="nav-link dropdown-toggle" href="#" id="infoDropdown" role="button"
                        data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-info-circle fa-fw"></i> Info
                     </a>
@@ -569,7 +508,7 @@ $links_menu_items = [
 
                 <!-- Links-Dropdown - immer in der Hauptnavigation bei normalen Benutzern -->
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle text-white" href="#" id="linksDropdown" role="button"
+                    <a class="nav-link dropdown-toggle" href="#" id="linksDropdown" role="button"
                        data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-external-link-alt fa-fw"></i> Links
                     </a>
@@ -599,7 +538,7 @@ $links_menu_items = [
                 if ($has_secondary_items):
                     ?>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle text-white" href="#" id="moreDropdown" role="button"
+                        <a class="nav-link dropdown-toggle" href="#" id="moreDropdown" role="button"
                            data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-ellipsis-h fa-fw"></i> Mehr
                         </a>
@@ -623,15 +562,10 @@ $links_menu_items = [
             </ul>
 
             <!-- Rechts-Sektion -->
-            <ul class="navbar-nav ms-auto d-flex flex-row align-items-center">
-                <!-- Datum/Zeit -->
-                <!--                <li class="nav-item me-3">-->
-                <!--                    <span id="date-time" class="text-white"></span>-->
-                <!--                </li>-->
-
+            <ul class="navbar-nav ms-auto align-items-center">
                 <!-- Benutzer Dropdown -->
                 <li class="nav-item dropdown me-3">
-                    <a class="nav-link dropdown-toggle text-white" href="#" id="userDropdown" role="button"
+                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
                        data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($username); ?>
                     </a>
@@ -647,7 +581,7 @@ $links_menu_items = [
                         <form class="d-flex search-form" action="search.php" method="GET">
                             <input class="form-control form-control-sm" type="search" name="query"
                                    placeholder="Suchen..." aria-label="Suchen">
-                            <button class="btn btn-sm btn-light" type="submit">
+                            <button class="btn btn-sm" type="submit">
                                 <i class="fas fa-search"></i>
                             </button>
                         </form>
@@ -656,7 +590,7 @@ $links_menu_items = [
 
                 <!-- Logout Button -->
                 <li class="nav-item">
-                    <a href="logout.php" class="btn btn-danger btn-sm btn-logout" data-method="post">
+                    <a href="logout.php" class="btn btn-danger btn-sm shadow-sm" data-method="post">
                         <i class="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </li>
@@ -667,28 +601,6 @@ $links_menu_items = [
 
 <!-- JavaScript für die Navbar -->
 <script>
-
-    /*    Navbar Datums/Zeitanzeige auskommentiert
-
-        // Datum/Zeit aktualisieren
-        function updateDateTime() {
-            const now = new Date();
-            const options = {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            };
-            document.getElementById('date-time').textContent = now.toLocaleString('de-AT', options);
-        }
-
-        // Initial und dann regelmäßig aktualisieren
-        updateDateTime();
-        setInterval(updateDateTime, 60000);
-
-        */
-
     // Aktuelle Seite hervorheben
     document.addEventListener('DOMContentLoaded', function () {
         const currentLocation = location.pathname.split('/').slice(-1)[0];

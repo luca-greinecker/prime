@@ -22,8 +22,8 @@ $main_category = isset($_GET['main_category']) ? (int)$_GET['main_category'] : 0
 $sub_category = isset($_GET['sub_category']) ? (int)$_GET['sub_category'] : 0;
 $date_from = isset($_GET['date_from']) ? $_GET['date_from'] : '';
 $date_to = isset($_GET['date_to']) ? $_GET['date_to'] : '';
-$created_date_from = isset($_GET['created_date_from']) ? $_GET['created_date_from'] : ''; // Neuer Filter: Erstelldatum von
-$created_date_to = isset($_GET['created_date_to']) ? $_GET['created_date_to'] : ''; // Neuer Filter: Erstelldatum bis
+$created_date_from = isset($_GET['created_date_from']) ? $_GET['created_date_from'] : '';
+$created_date_to = isset($_GET['created_date_to']) ? $_GET['created_date_to'] : '';
 $year = isset($_GET['year']) ? (int)$_GET['year'] : 0;
 $creator = isset($_GET['creator']) ? (int)$_GET['creator'] : 0;
 $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'date_desc';
@@ -37,8 +37,8 @@ $sort_options = [
     'category_asc' => 'Kategorie (A-Z)',
     'units_desc' => 'Einheiten (höchste zuerst)',
     'units_asc' => 'Einheiten (niedrigste zuerst)',
-    'created_desc' => 'Erstelldatum (neueste zuerst)', // Neue Option
-    'created_asc' => 'Erstelldatum (älteste zuerst)', // Neue Option
+    'created_desc' => 'Erstelldatum (neueste zuerst)',
+    'created_asc' => 'Erstelldatum (älteste zuerst)',
 ];
 
 // SQL-Query für Trainings mit Filter, Suche und Paginierung
@@ -82,7 +82,6 @@ if (!empty($date_to)) {
     $param_types .= 's';
 }
 
-// Neue Filter: Erstelldatum von/bis
 if (!empty($created_date_from)) {
     $sql_conditions[] = "DATE(t.created_at) >= ?";
     $sql_params[] = $created_date_from;
@@ -101,7 +100,6 @@ if ($year > 0) {
     $param_types .= 'i';
 }
 
-// Filter für Ersteller
 if ($creator > 0) {
     $sql_conditions[] = "t.created_by = ?";
     $sql_params[] = $creator;
@@ -132,10 +130,10 @@ switch ($sort_by) {
         $order_by = "t.training_units ASC";
         break;
     case 'created_desc':
-        $order_by = "t.created_at DESC"; // Neue Sortierung
+        $order_by = "t.created_at DESC";
         break;
     case 'created_asc':
-        $order_by = "t.created_at ASC"; // Neue Sortierung
+        $order_by = "t.created_at ASC";
         break;
     default:
         $order_by = "t.start_date DESC";
@@ -266,18 +264,18 @@ $category_stats_result = $category_stats_stmt->get_result();
 $category_stats = $category_stats_result->fetch_all(MYSQLI_ASSOC);
 $category_stats_stmt->close();
 
-// Status-Farben für Kategorien (Bootstrap-Farbklassen)
+// Bootstrap-Farben für Kategorien
 $category_colors = [
-    1 => 'danger',   // Rot
-    2 => 'success',   // Grün
-    3 => 'warning',   // Gelb
-    4 => 'indigo',    // Indigo
-    5 => 'info',      // Cyan
-    6 => 'purple',    // Violett
-    7 => 'orange',    // Orange
-    8 => 'secondary', // Grau
-    9 => 'teal',      // Türkisgrün
-    10 => 'primary',   // Blau
+    1 => 'danger',
+    2 => 'success',
+    3 => 'warning',
+    4 => 'primary',
+    5 => 'info',
+    6 => 'secondary',
+    7 => 'warning',
+    8 => 'secondary',
+    9 => 'info',
+    10 => 'primary',
 ];
 
 // Kategorie-Farbe nach ID konsistent zuweisen
@@ -285,25 +283,6 @@ foreach ($category_stats as $index => $stat) {
     $cat_id = $stat['id'];
     $color_index = ($cat_id % 10) == 0 ? 10 : ($cat_id % 10);
     $category_stats[$index]['color'] = $category_colors[$color_index];
-}
-
-// Hilfsfunktion: Subklasse für Bootstrap-Badges erstellen
-function getBadgeClass($color)
-{
-    // Standard Bootstrap-Farben direkt verwenden
-    if (in_array($color, ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'dark'])) {
-        return "bg-{$color}";
-    }
-
-    // Für andere Farben entsprechende Bootstrap-Klassen oder benutzerdefinierte Klassen
-    $color_map = [
-        'purple' => 'bg-purple',
-        'indigo' => 'bg-indigo',
-        'teal' => 'bg-info',
-        'orange' => 'bg-warning'
-    ];
-
-    return isset($color_map[$color]) ? $color_map[$color] : "bg-secondary";
 }
 
 // Aktive Filter zusammenstellen
@@ -320,7 +299,6 @@ if ($sub_category > 0) {
 }
 if (!empty($date_from)) $active_filters[] = ['label' => 'Von: ' . date('d.m.Y', strtotime($date_from)), 'param' => 'date_from'];
 if (!empty($date_to)) $active_filters[] = ['label' => 'Bis: ' . date('d.m.Y', strtotime($date_to)), 'param' => 'date_to'];
-// Neue Filter für Erstelldatum
 if (!empty($created_date_from)) $active_filters[] = ['label' => 'Erstellt von: ' . date('d.m.Y', strtotime($created_date_from)), 'param' => 'created_date_from'];
 if (!empty($created_date_to)) $active_filters[] = ['label' => 'Erstellt bis: ' . date('d.m.Y', strtotime($created_date_to)), 'param' => 'created_date_to'];
 if ($year > 0) $active_filters[] = ['label' => 'Jahr: ' . $year, 'param' => 'year'];
@@ -352,56 +330,23 @@ function buildPaginationUrl($page)
     <link href="assets/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        .training-category {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 20px;
-            color: white;
-            margin-right: 0.25rem;
-            margin-bottom: 0.25rem;
-            font-size: 0.75rem;
-        }
-
-        .filter-tag .close {
-            cursor: pointer;
-        }
-
-        .filter-tag .close:hover {
-            color: #dc3545;
-        }
-
+        /* Minimales Custom CSS - hauptsächlich Bootstrap-Klassen nutzen */
         .card-hover:hover {
-            transform: translateY(-5px);
             box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15) !important;
-            transition: all .2s ease-in-out;
+            transition: box-shadow .2s ease-in-out;
         }
 
-        .bg-purple {
-            background-color: #6f42c1;
+        .filter-tag .btn-close {
+            width: 0.5em;
+            height: 0.5em;
+            padding: 0;
+            margin-left: 0.5rem;
         }
 
-        .bg-indigo {
-            background-color: #6610f2;
-        }
-
-        .bg-teal {
-            background-color: #20c997;
-        }
-
-        .bg-orange {
-            background-color: #fd7e14;
-        }
-
-        #filterCollapse {
-            transition: all 0.3s ease;
-        }
-
-        .stats-pill {
-            transition: all 0.2s ease;
-        }
-
-        .stats-pill:hover {
-            transform: scale(1.05);
+        /* Kleine Anpassung für kompakte Category Pills */
+        .category-pill {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
         }
     </style>
 </head>
@@ -496,17 +441,13 @@ function buildPaginationUrl($page)
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-md-3 d-flex flex-column">
-                    <div class="mt-auto">
-                        <div class="d-flex mt-4">
-                            <button type="submit" class="btn btn-primary flex-grow-1">
-                                <i class="bi bi-search me-2"></i>Filtern
-                            </button>
-                            <a href="training_overview.php" class="btn btn-outline-secondary ms-2">
-                                <i class="bi bi-x-circle me-1"></i>Zurücksetzen
-                            </a>
-                        </div>
-                    </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary flex-grow-1">
+                        <i class="bi bi-search me-2"></i>Filtern
+                    </button>
+                    <a href="training_overview.php" class="btn btn-outline-secondary ms-2">
+                        <i class="bi bi-x-circle me-1"></i>Zurücksetzen
+                    </a>
                 </div>
             </div>
         </form>
@@ -515,9 +456,10 @@ function buildPaginationUrl($page)
         <?php if (!empty($active_filters)): ?>
             <div class="mt-3">
                 <?php foreach ($active_filters as $filter): ?>
-                    <span class="badge bg-light text-dark border me-2 mb-2 filter-tag">
+                    <span class="badge bg-light text-dark border me-2 mb-2 d-inline-flex align-items-center filter-tag">
                         <?php echo htmlspecialchars($filter['label']); ?>
-                        <span class="close ms-1" data-param="<?php echo $filter['param']; ?>">&times;</span>
+                        <button type="button" class="btn-close ms-2" data-param="<?php echo $filter['param']; ?>"
+                                aria-label="Filter entfernen"></button>
                     </span>
                 <?php endforeach; ?>
             </div>
@@ -525,12 +467,12 @@ function buildPaginationUrl($page)
     </div>
 
     <div class="row">
-        <!-- Statistik und Aktionsbereich - Bei mobilen Geräten oben anzeigen -->
+        <!-- Statistik und Aktionsbereich -->
         <div class="col-md-3 order-md-2 mb-4">
             <!-- Aktionen -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-light">
-                    <h5 class="mb-0 fs-5"><i class="bi bi-lightning-charge me-2"></i> Aktionen</h5>
+                    <h5 class="mb-0 fs-5"><i class="bi bi-lightning-charge me-2"></i>Aktionen</h5>
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
@@ -547,17 +489,17 @@ function buildPaginationUrl($page)
                 </div>
             </div>
 
-            <!-- Schnellfilter für häufige Kategorien -->
+            <!-- Schnellfilter -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-light">
-                    <h5 class="mb-0 fs-5"><i class="bi bi-filter me-2"></i> Schnellfilter</h5>
+                    <h5 class="mb-0 fs-5"><i class="bi bi-filter me-2"></i>Schnellfilter</h5>
                 </div>
                 <div class="card-body">
-                    <div class="d-flex flex-wrap">
+                    <div class="d-flex flex-wrap gap-2">
                         <?php foreach (array_slice($category_stats, 0, 5) as $stat): ?>
                             <?php if ($stat['training_count'] > 0): ?>
                                 <a href="?main_category=<?php echo $stat['id']; ?>"
-                                   class="badge me-2 mb-2 stats-pill <?php echo getBadgeClass($stat['color']); ?>">
+                                   class="badge text-bg-<?php echo $stat['color']; ?> text-decoration-none">
                                     <?php echo htmlspecialchars($stat['name']); ?>
                                     <span class="badge bg-light text-dark rounded-pill ms-1"><?php echo $stat['training_count']; ?></span>
                                 </a>
@@ -565,17 +507,17 @@ function buildPaginationUrl($page)
                         <?php endforeach; ?>
                     </div>
                     <hr>
-                    <div class="d-flex flex-wrap">
+                    <div class="d-flex flex-wrap gap-2">
                         <?php if (!empty($available_years)): ?>
                             <a href="?year=<?php echo $available_years[0]; ?>"
-                               class="badge bg-primary me-2 mb-2 stats-pill">
+                               class="badge text-bg-primary text-decoration-none">
                                 Aktuelles Jahr (<?php echo $available_years[0]; ?>)
                             </a>
                         <?php endif; ?>
-                        <a href="?sort_by=date_desc" class="badge bg-secondary me-2 mb-2 stats-pill">
+                        <a href="?sort_by=date_desc" class="badge text-bg-secondary text-decoration-none">
                             Neueste zuerst
                         </a>
-                        <a href="?sort_by=created_desc" class="badge bg-info me-2 mb-2 stats-pill">
+                        <a href="?sort_by=created_desc" class="badge text-bg-info text-decoration-none">
                             Neueste angelegt
                         </a>
                     </div>
@@ -585,10 +527,9 @@ function buildPaginationUrl($page)
             <!-- Statistiken -->
             <div class="card shadow-sm">
                 <div class="card-header bg-light">
-                    <h5 class="mb-0 fs-5"><i class="bi bi-bar-chart-line me-2"></i> Statistiken</h5>
+                    <h5 class="mb-0 fs-5"><i class="bi bi-bar-chart-line me-2"></i>Statistiken</h5>
                 </div>
                 <div class="card-body">
-                    <!-- Kategorieverteilung -->
                     <h6 class="card-subtitle mb-3">Weiterbildungen nach Kategorie</h6>
                     <?php foreach ($category_stats as $stat): ?>
                         <div class="mb-3 pb-2 border-bottom">
@@ -601,9 +542,8 @@ function buildPaginationUrl($page)
                             <div class="progress" style="height: 6px;">
                                 <?php
                                 $percentage = ($total_count > 0) ? ($stat['training_count'] / $total_count) * 100 : 0;
-                                $bg_class = getBadgeClass($stat['color']);
                                 ?>
-                                <div class="progress-bar <?php echo $bg_class; ?>" role="progressbar"
+                                <div class="progress-bar bg-<?php echo $stat['color']; ?>" role="progressbar"
                                      style="width: <?php echo $percentage; ?>%;"
                                      aria-valuenow="<?php echo $percentage; ?>" aria-valuemin="0"
                                      aria-valuemax="100"></div>
@@ -611,24 +551,23 @@ function buildPaginationUrl($page)
                         </div>
                     <?php endforeach; ?>
 
-                    <!-- Gesamtzahl -->
                     <div class="mt-4">
-                        <p><strong>Gesamtzahl:</strong> <?php echo $total_count; ?> Weiterbildungen</p>
+                        <p class="mb-2"><strong>Gesamtzahl:</strong> <?php echo $total_count; ?> Weiterbildungen</p>
                         <?php
-                        // Berechne Durchschnitt der Trainingseinheiten
                         $units_sum = 0;
                         foreach ($trainings as $training) {
                             $units_sum += $training['training_units'];
                         }
                         $avg_units = count($trainings) > 0 ? round($units_sum / count($trainings), 1) : 0;
                         ?>
-                        <p><strong>Durchschnitt:</strong> <?php echo $avg_units; ?> Einheiten pro Training</p>
+                        <p class="mb-0"><strong>Durchschnitt:</strong> <?php echo $avg_units; ?> Einheiten pro Training
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Ergebnisse und Paginierung -->
+        <!-- Ergebnisse -->
         <div class="col-md-9 order-md-1">
             <?php if (count($trainings) > 0): ?>
                 <!-- Ergebnisanzeige und Paginierung oben -->
@@ -642,8 +581,7 @@ function buildPaginationUrl($page)
                         <nav aria-label="Weiterbildungen Navigation">
                             <ul class="pagination pagination-sm mb-0">
                                 <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
-                                    <a class="page-link" href="<?php echo buildPaginationUrl($page - 1); ?>"
-                                       aria-label="Vorherige">
+                                    <a class="page-link" href="<?php echo buildPaginationUrl($page - 1); ?>">
                                         <span aria-hidden="true">&laquo;</span>
                                     </a>
                                 </li>
@@ -655,8 +593,7 @@ function buildPaginationUrl($page)
                                     </li>
                                 <?php endfor; ?>
                                 <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
-                                    <a class="page-link" href="<?php echo buildPaginationUrl($page + 1); ?>"
-                                       aria-label="Nächste">
+                                    <a class="page-link" href="<?php echo buildPaginationUrl($page + 1); ?>">
                                         <span aria-hidden="true">&raquo;</span>
                                     </a>
                                 </li>
@@ -687,14 +624,14 @@ function buildPaginationUrl($page)
                                     <div class="mb-3">
                                         <a href="?main_category=<?php echo $training['main_category_id']; ?>"
                                            class="text-decoration-none">
-                                            <span class="training-category <?php echo getBadgeClass($main_cat_color); ?>">
+                                            <span class="badge rounded-pill text-bg-<?php echo $main_cat_color; ?> category-pill">
                                                 <?php echo htmlspecialchars($training['main_category_name']); ?>
                                             </span>
                                         </a>
                                         <?php if (!empty($training['sub_category_name'])): ?>
                                             <a href="?sub_category=<?php echo $training['sub_category_id']; ?>"
                                                class="text-decoration-none">
-                                                <span class="training-category <?php echo getBadgeClass($main_cat_color); ?> opacity-75">
+                                                <span class="badge rounded-pill text-bg-<?php echo $main_cat_color; ?> category-pill opacity-75">
                                                     <?php echo htmlspecialchars($training['sub_category_name']); ?>
                                                 </span>
                                             </a>
@@ -703,7 +640,8 @@ function buildPaginationUrl($page)
 
                                     <!-- Metadaten -->
                                     <div class="text-muted small">
-                                        <div class="mb-1"><i class="bi bi-calendar-event me-2"></i>
+                                        <div class="mb-1">
+                                            <i class="bi bi-calendar-event me-2"></i>
                                             <?php
                                             echo htmlspecialchars(date('d.m.Y', strtotime($training['start_date'])));
                                             if ($training['start_date'] != $training['end_date']) {
@@ -712,11 +650,11 @@ function buildPaginationUrl($page)
                                             ?>
                                         </div>
                                         <div class="mb-1">
-                                            <i class="bi bi-clock me-2"></i> <?php echo htmlspecialchars($training['training_units']); ?>
+                                            <i class="bi bi-clock me-2"></i><?php echo htmlspecialchars($training['training_units']); ?>
                                             Einheiten
                                         </div>
                                         <div class="mb-1">
-                                            <i class="bi bi-people-fill me-2"></i> <?php echo htmlspecialchars($training['participants_count']); ?>
+                                            <i class="bi bi-people-fill me-2"></i><?php echo htmlspecialchars($training['participants_count']); ?>
                                             Teilnehmer
                                         </div>
                                         <div class="mb-1">
@@ -740,11 +678,11 @@ function buildPaginationUrl($page)
                                     <div class="d-flex justify-content-between">
                                         <a href="view_training.php?id=<?php echo $training['id']; ?>"
                                            class="btn btn-outline-secondary btn-sm">
-                                            <i class="bi bi-eye me-1"></i> Details
+                                            <i class="bi bi-eye me-1"></i>Details
                                         </a>
                                         <a href="edit_training.php?id=<?php echo $training['id']; ?>"
                                            class="btn btn-primary btn-sm">
-                                            <i class="bi bi-pencil-square me-1"></i> Bearbeiten
+                                            <i class="bi bi-pencil-square me-1"></i>Bearbeiten
                                         </a>
                                     </div>
                                 </div>
@@ -759,8 +697,7 @@ function buildPaginationUrl($page)
                         <nav aria-label="Weiterbildungen Navigation">
                             <ul class="pagination">
                                 <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
-                                    <a class="page-link" href="<?php echo buildPaginationUrl($page - 1); ?>"
-                                       aria-label="Vorherige">
+                                    <a class="page-link" href="<?php echo buildPaginationUrl($page - 1); ?>">
                                         <span aria-hidden="true">&laquo;</span>
                                     </a>
                                 </li>
@@ -797,8 +734,7 @@ function buildPaginationUrl($page)
                                 <?php endif; ?>
 
                                 <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
-                                    <a class="page-link" href="<?php echo buildPaginationUrl($page + 1); ?>"
-                                       aria-label="Nächste">
+                                    <a class="page-link" href="<?php echo buildPaginationUrl($page + 1); ?>">
                                         <span aria-hidden="true">&raquo;</span>
                                     </a>
                                 </li>
@@ -855,7 +791,7 @@ function buildPaginationUrl($page)
         });
 
         // Filter-Tags - entfernen einzelner Filter
-        document.querySelectorAll('.filter-tag .close').forEach(closeBtn => {
+        document.querySelectorAll('.filter-tag .btn-close').forEach(closeBtn => {
             closeBtn.addEventListener('click', function () {
                 const param = this.getAttribute('data-param');
                 const url = new URL(window.location.href);
@@ -866,17 +802,10 @@ function buildPaginationUrl($page)
 
         // Exportfunktion für CSV
         document.getElementById('exportCsvBtn').addEventListener('click', function () {
-            // Aktuelle Parameter für den Filter beibehalten
             const currentParams = new URLSearchParams(window.location.search);
-            currentParams.append('export', 'csv'); // CSV-Export-Parameter hinzufügen
-
-            // Zur Export-URL navigieren
+            currentParams.append('export', 'csv');
             window.location.href = 'export_trainings.php?' + currentParams.toString();
         });
-
-        // Tooltips initialisieren
-        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-        [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
     });
 </script>
 </body>
