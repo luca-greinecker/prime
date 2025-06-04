@@ -40,7 +40,6 @@ if (isset($_SESSION['status_message']) && isset($_SESSION['status_type'])) {
 // Status 0: Reception processing
 $employees_status0 = [];
 if (ist_empfang() || ist_hr() || ist_admin()) {
-    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $stmt = $conn->prepare("
         SELECT 
             e.employee_id, 
@@ -72,7 +71,6 @@ if (ist_empfang() || ist_hr() || ist_admin()) {
 // Status 1: HR processing
 $employees_status1 = [];
 if (ist_hr() || ist_admin()) {
-    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $stmt = $conn->prepare("
         SELECT 
             e.employee_id, 
@@ -102,7 +100,6 @@ if (ist_hr() || ist_admin()) {
 // Combined for the overview
 $all_onboarding = [];
 if (ist_hr() || ist_admin()) {
-    // MODIFIZIERT: Archivierte Mitarbeiter ausfiltern (status != 9999)
     $sql = "
         SELECT 
             e.employee_id, 
@@ -136,10 +133,33 @@ $total_onboarding = $total_status0 + $total_status1;
 // Determine which tab should be active by default based on user role
 $active_tab = '';
 if (ist_empfang() && !ist_hr() && !ist_admin()) {
-    $active_tab = 'status0'; // Reception users see Reception tab by default
+    $active_tab = 'status0';
 } elseif (ist_hr() || ist_admin()) {
-    $active_tab = 'status1'; // HR/Admin users see HR tab by default
+    $active_tab = 'status1';
 }
+
+// Helper function for employee image
+function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circle')
+{
+    if (!empty($employee['bild']) && $employee['bild'] !== 'kein-bild.jpg') {
+        return sprintf(
+            '<img src="../mitarbeiter-anzeige/fotos/%s" alt="Bild von %s" class="%s" style="width: %s; height: %s; object-fit: cover;">',
+            htmlspecialchars($employee['bild']),
+            htmlspecialchars($employee['name']),
+            $classes,
+            $size,
+            $size
+        );
+    } else {
+        return sprintf(
+            '<div class="bg-light %s d-flex align-items-center justify-content-center" style="width: %s; height: %s;"><i class="bi bi-person-fill"></i></div>',
+            $classes,
+            $size,
+            $size
+        );
+    }
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -152,27 +172,58 @@ if (ist_empfang() && !ist_hr() && !ist_admin()) {
     <link href="navbar.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
+        /* Tab-Styling mit wichtigen Overrides für Lesbarkeit */
         .nav-tabs .nav-link {
-            color: #495057;
+            color: #495057 !important;
             background-color: #f8f9fa;
-            border-color: #dee2e6 #dee2e6 #fff;
+            border-color: #dee2e6;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tabs .nav-link:hover {
+            color: #0d6efd !important;
+            background-color: #e9ecef;
+            border-color: #dee2e6;
         }
 
         .nav-tabs .nav-link.active {
-            color: #0d6efd;
+            color: #0d6efd !important;
             background-color: #fff;
             border-color: #dee2e6 #dee2e6 #fff;
-            font-weight: bold;
+            font-weight: 600;
         }
 
+        /* Sicherstellen dass Badge-Farben korrekt sind */
+        .nav-tabs .badge {
+            vertical-align: middle;
+        }
+
+        /* Card Hover-Effekt */
         .employee-card {
-            height: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid rgba(0, 0, 0, .125);
         }
 
-        .employee-image {
-            width: 50px;
-            height: 50px;
-            object-fit: cover;
+        .employee-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15) !important;
+        }
+
+        /* Table Styling */
+        .table-hover tbody tr:hover {
+            background-color: rgba(0, 0, 0, .02);
+        }
+
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .nav-tabs .nav-link {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.9rem;
+            }
+
+            .nav-tabs .badge {
+                font-size: 0.75rem;
+            }
         }
     </style>
 </head>
@@ -181,28 +232,28 @@ if (ist_empfang() && !ist_hr() && !ist_admin()) {
 
 <div class="container content">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1><i class="bi bi-person-plus-fill me-2"></i>Onboarding-Übersicht</h1>
+        <h1 class="h1"><i class="bi bi-person-plus-fill me-2"></i>Onboarding-Übersicht</h1>
     </div>
 
     <?php if (!empty($status_message)): ?>
         <div class="alert alert-<?php echo $status_type; ?> alert-dismissible fade show" role="alert">
-            <i class="bi bi-info-circle me-2"></i><?php echo $status_message; ?>
+            <i class="bi bi-info-circle me-2"></i><?php echo htmlspecialchars($status_message); ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
 
     <!-- Tabs for different stages -->
     <ul class="nav nav-tabs mb-4" id="onboardingTabs" role="tablist">
-        <?php if (ist_empfang() && !ist_hr() && !ist_admin()): ?>
+        <?php if (ist_empfang() || ist_hr() || ist_admin()): ?>
             <li class="nav-item" role="presentation">
-                <button class="nav-link active"
+                <button class="nav-link <?php echo ($active_tab == 'status0') ? 'active' : ''; ?>"
                         id="status0-tab"
                         data-bs-toggle="tab"
                         data-bs-target="#status0"
                         type="button"
                         role="tab"
                         aria-controls="status0"
-                        aria-selected="true">
+                        aria-selected="<?php echo ($active_tab == 'status0') ? 'true' : 'false'; ?>">
                     <i class="bi bi-box2 me-1"></i>Empfang
                     <?php if ($total_status0 > 0): ?>
                         <span class="badge bg-secondary ms-1"><?php echo $total_status0; ?></span>
@@ -227,9 +278,7 @@ if (ist_empfang() && !ist_hr() && !ist_admin()) {
                     <?php endif; ?>
                 </button>
             </li>
-        <?php endif; ?>
 
-        <?php if (ist_hr() || ist_admin()): ?>
             <li class="nav-item" role="presentation">
                 <button class="nav-link"
                         id="overview-tab"
@@ -250,8 +299,8 @@ if (ist_empfang() && !ist_hr() && !ist_admin()) {
 
     <div class="tab-content" id="onboardingTabsContent">
         <!-- Empfang Tab -->
-        <?php if (ist_empfang() && !ist_hr() && !ist_admin()): ?>
-            <div class="tab-pane fade show active"
+        <?php if (ist_empfang() || ist_hr() || ist_admin()): ?>
+            <div class="tab-pane fade <?php echo ($active_tab == 'status0') ? 'show active' : ''; ?>"
                  id="status0"
                  role="tabpanel"
                  aria-labelledby="status0-tab">
@@ -259,31 +308,23 @@ if (ist_empfang() && !ist_hr() && !ist_admin()) {
                     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                         <?php foreach ($employees_status0 as $employee): ?>
                             <div class="col">
-                                <div class="card shadow-sm employee-card">
+                                <div class="card h-100 employee-card">
                                     <div class="card-body">
-                                        <div class="d-flex mb-2">
-                                            <?php if (!empty($employee['bild']) && $employee['bild'] !== 'kein-bild.jpg'): ?>
-                                                <img src="../mitarbeiter-anzeige/fotos/<?php echo htmlspecialchars($employee['bild']); ?>"
-                                                     alt="Bild von <?php echo htmlspecialchars($employee['name']); ?>"
-                                                     class="rounded-circle me-3 employee-image">
-                                            <?php else: ?>
-                                                <div class="d-flex align-items-center justify-content-center me-3 bg-light rounded-circle employee-image">
-                                                    <i class="bi bi-person-fill"></i>
-                                                </div>
-                                            <?php endif; ?>
-
-                                            <div>
-                                                <h5 class="card-title mb-0"><?php echo htmlspecialchars($employee['name']); ?></h5>
-                                                <p class="card-text mb-0"><?php echo htmlspecialchars($employee['position']); ?></p>
+                                        <div class="d-flex mb-3">
+                                            <div class="me-3">
+                                                <?php echo renderEmployeeImage($employee); ?>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="card-title mb-1"><?php echo htmlspecialchars($employee['name']); ?></h5>
+                                                <p class="card-text text-muted mb-0"><?php echo htmlspecialchars($employee['position']); ?></p>
                                             </div>
                                         </div>
 
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <div class="small text-muted">
+                                            <small class="text-muted">
                                                 <i class="bi bi-calendar-event me-1"></i>
-                                                <strong>Eintritt:</strong>
                                                 <?php echo date('d.m.Y', strtotime($employee['entry_date'])); ?>
-                                            </div>
+                                            </small>
 
                                             <a href="employee_onboarding.php?id=<?php echo $employee['employee_id']; ?>"
                                                class="btn btn-primary btn-sm">
@@ -316,31 +357,23 @@ if (ist_empfang() && !ist_hr() && !ist_admin()) {
                     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                         <?php foreach ($employees_status1 as $employee): ?>
                             <div class="col">
-                                <div class="card shadow-sm employee-card">
+                                <div class="card h-100 employee-card">
                                     <div class="card-body">
-                                        <div class="d-flex mb-2">
-                                            <?php if (!empty($employee['bild']) && $employee['bild'] !== 'kein-bild.jpg'): ?>
-                                                <img src="../mitarbeiter-anzeige/fotos/<?php echo htmlspecialchars($employee['bild']); ?>"
-                                                     alt="Bild von <?php echo htmlspecialchars($employee['name']); ?>"
-                                                     class="rounded-circle me-3 employee-image">
-                                            <?php else: ?>
-                                                <div class="d-flex align-items-center justify-content-center me-3 bg-light rounded-circle employee-image">
-                                                    <i class="bi bi-person-fill"></i>
-                                                </div>
-                                            <?php endif; ?>
-
-                                            <div>
-                                                <h5 class="card-title mb-0"><?php echo htmlspecialchars($employee['name']); ?></h5>
-                                                <p class="card-text mb-0"><?php echo htmlspecialchars($employee['position']); ?></p>
+                                        <div class="d-flex mb-3">
+                                            <div class="me-3">
+                                                <?php echo renderEmployeeImage($employee); ?>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="card-title mb-1"><?php echo htmlspecialchars($employee['name']); ?></h5>
+                                                <p class="card-text text-muted mb-0"><?php echo htmlspecialchars($employee['position']); ?></p>
                                             </div>
                                         </div>
 
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <div class="small text-muted">
+                                            <small class="text-muted">
                                                 <i class="bi bi-calendar-event me-1"></i>
-                                                <strong>Eintritt:</strong>
                                                 <?php echo date('d.m.Y', strtotime($employee['entry_date'])); ?>
-                                            </div>
+                                            </small>
 
                                             <a href="hr_onboarding.php?id=<?php echo $employee['employee_id']; ?>"
                                                class="btn btn-primary btn-sm">
@@ -373,15 +406,15 @@ if (ist_empfang() && !ist_hr() && !ist_admin()) {
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
-                                <table class="table table-hover mb-0">
-                                    <thead>
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
                                     <tr>
                                         <th>Name</th>
                                         <th>Position</th>
                                         <th>Eintrittsdatum</th>
                                         <th>Team</th>
                                         <th>Status</th>
-                                        <th>Aktion</th>
+                                        <th class="text-center">Aktion</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -389,17 +422,10 @@ if (ist_empfang() && !ist_hr() && !ist_admin()) {
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <?php if (!empty($employee['bild']) && $employee['bild'] !== 'kein-bild.jpg'): ?>
-                                                        <img src="../mitarbeiter-anzeige/fotos/<?php echo htmlspecialchars($employee['bild']); ?>"
-                                                             alt="Bild" class="rounded-circle me-2" width="30"
-                                                             height="30">
-                                                    <?php else: ?>
-                                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2"
-                                                             style="width: 30px; height: 30px;">
-                                                            <i class="bi bi-person-fill small"></i>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                    <?php echo htmlspecialchars($employee['name']); ?>
+                                                    <div class="me-2">
+                                                        <?php echo renderEmployeeImage($employee, '30px'); ?>
+                                                    </div>
+                                                    <span><?php echo htmlspecialchars($employee['name']); ?></span>
                                                 </div>
                                             </td>
                                             <td><?php echo htmlspecialchars($employee['position']); ?></td>
@@ -409,18 +435,20 @@ if (ist_empfang() && !ist_hr() && !ist_admin()) {
                                                 <?php if ($employee['onboarding_status'] == 0): ?>
                                                     <span class="badge bg-warning text-dark">Empfang</span>
                                                 <?php elseif ($employee['onboarding_status'] == 1): ?>
-                                                    <span class="badge bg-info">HR</span>
+                                                    <span class="badge bg-info text-white">HR</span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td>
+                                            <td class="text-center">
                                                 <?php if ($employee['onboarding_status'] == 0): ?>
                                                     <a href="employee_onboarding.php?id=<?php echo $employee['employee_id']; ?>"
-                                                       class="btn btn-sm btn-outline-primary">
+                                                       class="btn btn-sm btn-outline-primary"
+                                                       title="Bearbeiten">
                                                         <i class="bi bi-pencil-square"></i>
                                                     </a>
                                                 <?php elseif ($employee['onboarding_status'] == 1): ?>
                                                     <a href="hr_onboarding.php?id=<?php echo $employee['employee_id']; ?>"
-                                                       class="btn btn-sm btn-outline-primary">
+                                                       class="btn btn-sm btn-outline-primary"
+                                                       title="Bearbeiten">
                                                         <i class="bi bi-pencil-square"></i>
                                                     </a>
                                                 <?php endif; ?>
