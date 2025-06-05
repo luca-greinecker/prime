@@ -25,6 +25,26 @@ $current_user_id = $_SESSION['mitarbeiter_id'];
 $status_message = '';
 $status_type = '';
 
+// Handle AJAX delete request for missing employees
+if (isset($_POST['action']) && $_POST['action'] === 'delete_missing' && isset($_POST['id'])) {
+    if (ist_hr() || ist_admin()) {
+        $id = intval($_POST['id']);
+        $stmt = $conn->prepare("DELETE FROM missing_employees WHERE id = ?");
+        $stmt->bind_param("i", $id);
+
+        if ($stmt->execute()) {
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Fehler beim Löschen']);
+        }
+        $stmt->close();
+        exit;
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Keine Berechtigung']);
+        exit;
+    }
+}
+
 // Show appropriate message if set in session
 if (isset($_SESSION['status_message']) && isset($_SESSION['status_type'])) {
     $status_message = $_SESSION['status_message'];
@@ -231,6 +251,13 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
             background-color: rgba(0, 0, 0, .02);
         }
 
+        /* Info Alert Styling */
+        .info-alert {
+            background-color: #e7f3ff;
+            border-color: #b3d9ff;
+            color: #0c5460;
+        }
+
         /* Responsive improvements */
         @media (max-width: 768px) {
             .nav-tabs .nav-link {
@@ -292,22 +319,6 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
                     <i class="bi bi-person-vcard me-1"></i>HR
                     <?php if ($total_status1 > 0): ?>
                         <span class="badge bg-secondary ms-1"><?php echo $total_status1; ?></span>
-                    <?php endif; ?>
-                </button>
-            </li>
-
-            <li class="nav-item" role="presentation">
-                <button class="nav-link"
-                        id="missing-tab"
-                        data-bs-toggle="tab"
-                        data-bs-target="#missing"
-                        type="button"
-                        role="tab"
-                        aria-controls="missing"
-                        aria-selected="false">
-                    <i class="bi bi-question-diamond me-1"></i>Fehlende MA
-                    <?php if ($total_missing > 0): ?>
-                        <span class="badge bg-secondary ms-1"><?php echo $total_missing; ?></span>
                     <?php endif; ?>
                 </button>
             </li>
@@ -518,9 +529,26 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
                 <?php endif; ?>
             </div>
         <?php endif; ?>
+
         <!-- Missing Employees Tab -->
         <?php if (ist_hr() || ist_admin()): ?>
             <div class="tab-pane fade" id="missing" role="tabpanel" aria-labelledby="missing-tab">
+                <!-- Info Alert -->
+                <div class="alert info-alert d-flex align-items-start mb-4" role="alert">
+                    <i class="bi bi-info-circle-fill me-3 fs-5 flex-shrink-0"></i>
+                    <div>
+                        <h6 class="alert-heading mb-2">Was sind fehlende Mitarbeiter?</h6>
+                        <p class="mb-1">Diese Liste zeigt Mitarbeiter, die im Zeit+/Infoniqa System erfasst (und anwesend) sind, aber
+                            noch nicht in PRiME angelegt wurden.</p>
+                        <p class="mb-1">Ein automatisiertes Script prüft alle 5 Minuten die Anwesenheitsdaten und
+                            gleicht sie mit PRiME ab.
+                            Wird eine Person im Zeiterfassungssystem gefunden, die in PRiME fehlt, erscheint sie
+                            hier.</p>
+                        <p class="mb-0"><strong>Empfehlung:</strong> Diese Mitarbeiter sollten zeitnah in PRiME erfasst
+                            werden, um eine vollständige und korrekte Datenbasis zu gewährleisten. Danach kann sie hier gelöscht werden - das ist eine unabhängige/unwichtige Auflistung.</p>
+                    </div>
+                </div>
+
                 <?php if (count($missing_employees) > 0): ?>
                     <div class="card shadow-sm">
                         <div class="card-header bg-light">
@@ -534,14 +562,23 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
                                         <th>Name</th>
                                         <th>Zuletzt anwesend</th>
                                         <th>Ausweisnummer</th>
+                                        <th class="text-center">Aktion</th>
                                     </tr>
                                     </thead>
                                     <tbody>
                                     <?php foreach ($missing_employees as $memp): ?>
-                                        <tr>
+                                        <tr id="missing-row-<?php echo $memp['id']; ?>">
                                             <td><?php echo htmlspecialchars($memp['name']); ?></td>
                                             <td><?php echo htmlspecialchars(date('d.m.Y', strtotime($memp['last_present']))); ?></td>
                                             <td><?php echo htmlspecialchars($memp['badge_id']); ?></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-danger delete-missing"
+                                                        data-id="<?php echo $memp['id']; ?>"
+                                                        data-name="<?php echo htmlspecialchars($memp['name']); ?>"
+                                                        title="Entfernen">
+                                                    <i class="bi bi-trash3"></i>
+                                                </button>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                     </tbody>
@@ -553,7 +590,8 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
                     <div class="text-center py-5">
                         <i class="bi bi-inbox display-1 text-muted"></i>
                         <h4 class="mt-3">Keine fehlenden Mitarbeiter</h4>
-                        <p class="text-muted">Es wurden keine weiteren Personen gefunden.</p>
+                        <p class="text-muted">Alle im Zeiterfassungssystem vorhandenen Mitarbeiter sind auch in PRiME
+                            angelegt.</p>
                     </div>
                 <?php endif; ?>
             </div>
@@ -562,5 +600,60 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
 </div>
 
 <script src="assets/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Handle delete button clicks for missing employees
+        document.querySelectorAll('.delete-missing').forEach(button => {
+            button.addEventListener('click', function () {
+                const id = this.dataset.id;
+                const name = this.dataset.name;
+
+                if (confirm(`Möchten Sie "${name}" wirklich aus der Liste entfernen?\n\nHinweis: Dies entfernt nur den Eintrag aus dieser Liste. Der Mitarbeiter bleibt im Zeiterfassungssystem bestehen.`)) {
+                    // Send AJAX request
+                    fetch('onboarding_list.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `action=delete_missing&id=${id}`
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Remove the row from the table
+                                const row = document.getElementById(`missing-row-${id}`);
+                                if (row) {
+                                    row.remove();
+
+                                    // Update badge count
+                                    const badge = document.querySelector('#missing-tab .badge');
+                                    if (badge) {
+                                        const currentCount = parseInt(badge.textContent);
+                                        if (currentCount > 1) {
+                                            badge.textContent = currentCount - 1;
+                                        } else {
+                                            badge.remove();
+                                        }
+                                    }
+
+                                    // Check if table is now empty
+                                    const tbody = document.querySelector('#missing tbody');
+                                    if (!tbody || tbody.children.length === 0) {
+                                        location.reload(); // Reload to show empty state
+                                    }
+                                }
+                            } else {
+                                alert('Fehler beim Entfernen: ' + (data.error || 'Unbekannter Fehler'));
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Es ist ein Fehler aufgetreten.');
+                        });
+                }
+            });
+        });
+    });
+</script>
 </body>
 </html>
