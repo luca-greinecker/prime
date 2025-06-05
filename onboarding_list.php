@@ -298,6 +298,22 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
 
             <li class="nav-item" role="presentation">
                 <button class="nav-link"
+                        id="missing-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#missing"
+                        type="button"
+                        role="tab"
+                        aria-controls="missing"
+                        aria-selected="false">
+                    <i class="bi bi-question-diamond me-1"></i>Fehlende MA
+                    <?php if ($total_missing > 0): ?>
+                        <span class="badge bg-secondary ms-1"><?php echo $total_missing; ?></span>
+                    <?php endif; ?>
+                </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link"
                         id="overview-tab"
                         data-bs-toggle="tab"
                         data-bs-target="#overview"
@@ -424,6 +440,47 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
                         <h4 class="mt-3">Keine Mitarbeiter für HR</h4>
                         <p class="text-muted">Derzeit gibt es keine Mitarbeiter, die von HR bearbeitet werden
                             müssen.</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
+        <!-- Missing Employees Tab -->
+        <?php if (ist_hr() || ist_admin()): ?>
+            <div class="tab-pane fade" id="missing" role="tabpanel" aria-labelledby="missing-tab">
+                <?php if (count($missing_employees) > 0): ?>
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Fehlende Mitarbeiter</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Zuletzt anwesend</th>
+                                        <th>Ausweisnummer</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php foreach ($missing_employees as $memp): ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($memp['name']); ?></td>
+                                            <td><?php echo htmlspecialchars(date('d.m.Y H:i', strtotime($memp['last_seen']))); ?></td>
+                                            <td><?php echo htmlspecialchars($memp['badge_id']); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <h4 class="mt-3">Keine fehlenden Mitarbeiter</h4>
+                        <p class="text-muted">Es wurden keine weiteren Personen gefunden.</p>
                     </div>
                 <?php endif; ?>
             </div>
