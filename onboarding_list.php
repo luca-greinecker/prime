@@ -27,7 +27,7 @@ $status_type = '';
 
 // Handle AJAX delete request for missing employees
 if (isset($_POST['action']) && $_POST['action'] === 'delete_missing' && isset($_POST['id'])) {
-    if (ist_hr() || ist_admin()) {
+    if (ist_empfang() || ist_hr() || ist_admin()) {
         $id = intval($_POST['id']);
         $stmt = $conn->prepare("DELETE FROM missing_employees WHERE id = ?");
         $stmt->bind_param("i", $id);
@@ -152,20 +152,49 @@ $total_onboarding = $total_status0 + $total_status1;
 
 // ===================================================
 // Fetch employees detected by external system but missing in PRIME
+// Enhanced to differentiate between completely missing and wrong badge ID
 // ===================================================
-$missing_employees = [];
-if (ist_hr() || ist_admin()) {
+$completely_missing = [];
+$wrong_badge_id = [];
+
+if (ist_empfang() || ist_hr() || ist_admin()) {
+    // First, get all entries from missing_employees
     $stmt = $conn->prepare(
-        "SELECT id, name, last_present, badge_id FROM missing_employees ORDER BY last_present DESC, name"
+        "SELECT me.id, me.name, me.last_present, me.badge_id as zeit_badge_id,
+                e.employee_id, e.badge_id as prime_badge_id
+         FROM missing_employees me
+         LEFT JOIN employees e ON LOWER(TRIM(me.name)) = LOWER(TRIM(e.name)) 
+            AND e.status != 9999
+         ORDER BY me.last_present DESC, me.name"
     );
     $stmt->execute();
     $result = $stmt->get_result();
+
     while ($row = $result->fetch_assoc()) {
-        $missing_employees[] = $row;
+        if ($row['employee_id'] === null) {
+            // Employee doesn't exist in PRiME at all
+            $completely_missing[] = [
+                'id' => $row['id'],
+                'name' => $row['name'],
+                'last_present' => $row['last_present'],
+                'badge_id' => $row['zeit_badge_id']
+            ];
+        } else {
+            // Employee exists but badge ID doesn't match
+            $wrong_badge_id[] = [
+                'id' => $row['id'],
+                'name' => $row['name'],
+                'last_present' => $row['last_present'],
+                'zeit_badge_id' => $row['zeit_badge_id'],
+                'prime_badge_id' => $row['prime_badge_id'],
+                'employee_id' => $row['employee_id']
+            ];
+        }
     }
     $stmt->close();
 }
-$total_missing = count($missing_employees);
+
+$total_missing = count($completely_missing) + count($wrong_badge_id);
 
 // Determine which tab should be active by default based on user role
 $active_tab = '';
@@ -258,6 +287,23 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
             color: #0c5460;
         }
 
+        .table td a {
+            color: inherit;
+            transition: color 0.2s;
+        }
+
+        .table td a:hover {
+            color: #0d6efd;
+        }
+
+        .bg-danger.text-white .badge {
+            color: #dc3545 !important;
+        }
+
+        .bg-warning .badge {
+            color: #664d03 !important;
+        }
+
         /* Responsive improvements */
         @media (max-width: 768px) {
             .nav-tabs .nav-link {
@@ -338,7 +384,9 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
                     <?php endif; ?>
                 </button>
             </li>
+        <?php endif; ?>
 
+        <?php if (ist_empfang() || ist_hr() || ist_admin()): ?>
             <li class="nav-item" role="presentation">
                 <button class="nav-link"
                         id="missing-tab"
@@ -531,28 +579,31 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
         <?php endif; ?>
 
         <!-- Missing Employees Tab -->
-        <?php if (ist_hr() || ist_admin()): ?>
+        <?php if (ist_empfang() || ist_hr() || ist_admin()): ?>
             <div class="tab-pane fade" id="missing" role="tabpanel" aria-labelledby="missing-tab">
                 <!-- Info Alert -->
                 <div class="alert info-alert d-flex align-items-start mb-4" role="alert">
                     <i class="bi bi-info-circle-fill me-3 fs-5 flex-shrink-0"></i>
                     <div>
                         <h6 class="alert-heading mb-2">Was sind fehlende Mitarbeiter?</h6>
-                        <p class="mb-1">Diese Liste zeigt Mitarbeiter, die im Zeit+/Infoniqa System erfasst (und anwesend) sind, aber
-                            noch nicht in PRiME angelegt wurden.</p>
-                        <p class="mb-1">Ein automatisiertes Script prüft alle 5 Minuten die Anwesenheitsdaten und
-                            gleicht sie mit PRiME ab.
-                            Wird eine Person im Zeiterfassungssystem gefunden, die in PRiME fehlt, erscheint sie
-                            hier.</p>
-                        <p class="mb-0"><strong>Empfehlung:</strong> Diese Mitarbeiter sollten zeitnah in PRiME erfasst
-                            werden, um eine vollständige und korrekte Datenbasis zu gewährleisten. Danach kann sie hier gelöscht werden - das ist eine unabhängige/unwichtige Auflistung.</p>
+                        <p class="mb-1">Diese Liste zeigt Mitarbeiter aus dem Zeit+/Infoniqa System, die:</p>
+                        <ul class="mb-2">
+                            <li><strong>Noch nicht in PRiME angelegt wurden</strong> - Diese Mitarbeiter müssen komplett neu erfasst werden</li>
+                            <li><strong>Eine falsche Ausweisnummer in PRiME haben</strong> - Bei diesen Mitarbeitern stimmt die Ausweisnummer nicht überein (z.B. nach Kartentausch)</li>
+                        </ul>
+                        <p class="mb-1">Ein automatisiertes Script prüft alle 5 Minuten die Anwesenheitsdaten und gleicht sie mit PRiME ab.</p>
+                        <p class="mb-0"><strong>Empfehlung:</strong> Fehlende Mitarbeiter sollten zeitnah in PRiME erfasst werden. Bei falschen Ausweisnummern sollte die Nummer in PRiME aktualisiert werden. Nach der Korrektur können die Einträge hier gelöscht werden.</p>
                     </div>
                 </div>
 
-                <?php if (count($missing_employees) > 0): ?>
-                    <div class="card shadow-sm">
-                        <div class="card-header bg-light">
-                            <h5 class="mb-0">Fehlende Mitarbeiter</h5>
+                <?php if (count($completely_missing) > 0): ?>
+                    <!-- Completely Missing Employees -->
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-person-x me-2"></i>Komplett fehlende Mitarbeiter
+                                <span class="badge bg-white text-danger ms-2"><?php echo count($completely_missing); ?></span>
+                            </h5>
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
@@ -561,21 +612,24 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
                                     <tr>
                                         <th>Name</th>
                                         <th>Zuletzt anwesend</th>
-                                        <th>Ausweisnummer</th>
+                                        <th>Ausweisnummer (Zeit+/Infoniqa)</th>
                                         <th class="text-center">Aktion</th>
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <?php foreach ($missing_employees as $memp): ?>
+                                    <?php foreach ($completely_missing as $memp): ?>
                                         <tr id="missing-row-<?php echo $memp['id']; ?>">
-                                            <td><?php echo htmlspecialchars($memp['name']); ?></td>
+                                            <td>
+                                                <i class="bi bi-person-x text-danger me-2"></i>
+                                                <?php echo htmlspecialchars($memp['name']); ?>
+                                            </td>
                                             <td><?php echo htmlspecialchars(date('d.m.Y', strtotime($memp['last_present']))); ?></td>
                                             <td><?php echo htmlspecialchars($memp['badge_id']); ?></td>
                                             <td class="text-center">
                                                 <button class="btn btn-sm btn-outline-danger delete-missing"
                                                         data-id="<?php echo $memp['id']; ?>"
                                                         data-name="<?php echo htmlspecialchars($memp['name']); ?>"
-                                                        title="Entfernen">
+                                                        title="Aus Liste entfernen">
                                                     <i class="bi bi-trash3"></i>
                                                 </button>
                                             </td>
@@ -586,12 +640,79 @@ function renderEmployeeImage($employee, $size = '50px', $classes = 'rounded-circ
                             </div>
                         </div>
                     </div>
-                <?php else: ?>
+                <?php endif; ?>
+
+                <?php if (count($wrong_badge_id) > 0): ?>
+                    <!-- Wrong Badge ID Employees -->
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-warning">
+                            <h5 class="mb-0">
+                                <i class="bi bi-credit-card-2-front me-2"></i>Falsche Ausweisnummer
+                                <span class="badge bg-white text-dark ms-2"><?php echo count($wrong_badge_id); ?></span>
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Zuletzt anwesend</th>
+                                        <th>Ausweisnummer PRiME</th>
+                                        <th>Ausweisnummer Zeit+/Infoniqa</th>
+                                        <th class="text-center">Aktionen</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php foreach ($wrong_badge_id as $memp): ?>
+                                        <tr id="missing-row-<?php echo $memp['id']; ?>">
+                                            <td>
+                                                <a href="employee_details.php?employee_id=<?php echo $memp['employee_id']; ?>"
+                                                   class="text-decoration-none">
+                                                    <i class="bi bi-credit-card text-warning me-2"></i>
+                                                    <?php echo htmlspecialchars($memp['name']); ?>
+                                                </a>
+                                            </td>
+                                            <td><?php echo htmlspecialchars(date('d.m.Y', strtotime($memp['last_present']))); ?></td>
+                                            <td>
+                                        <span class="text-danger fw-bold">
+                                            <?php echo htmlspecialchars($memp['prime_badge_id'] ?: 'Nicht gesetzt'); ?>
+                                        </span>
+                                            </td>
+                                            <td>
+                                        <span class="text-success fw-bold">
+                                            <?php echo htmlspecialchars($memp['zeit_badge_id']); ?>
+                                        </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <a href="employee_details.php?employee_id=<?php echo $memp['employee_id']; ?>"
+                                                       class="btn btn-outline-primary"
+                                                       title="Mitarbeiter bearbeiten">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                    </a>
+                                                    <button class="btn btn-outline-danger delete-missing"
+                                                            data-id="<?php echo $memp['id']; ?>"
+                                                            data-name="<?php echo htmlspecialchars($memp['name']); ?>"
+                                                            title="Aus Liste entfernen">
+                                                        <i class="bi bi-trash3"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (count($completely_missing) == 0 && count($wrong_badge_id) == 0): ?>
                     <div class="text-center py-5">
-                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <i class="bi bi-check-circle display-1 text-success"></i>
                         <h4 class="mt-3">Keine fehlenden Mitarbeiter</h4>
-                        <p class="text-muted">Alle im Zeiterfassungssystem vorhandenen Mitarbeiter sind auch in PRiME
-                            angelegt.</p>
+                        <p class="text-muted">Alle im Zeiterfassungssystem vorhandenen Mitarbeiter sind korrekt in PRiME angelegt.</p>
                     </div>
                 <?php endif; ?>
             </div>
