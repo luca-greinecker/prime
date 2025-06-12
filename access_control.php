@@ -458,11 +458,7 @@ if (!defined('ACCESS_CONTROL_INCLUDED')) {
     {
         return ist_admin()
             || ist_hr()
-            || ist_empfang()
-            || ist_trainingsmanager()
-            || ist_bereichsleiter()
-            || ist_sm()
-            || ist_smstv();
+            || ist_empfang();
     }
 
     function hat_zugriff_auf_uebersicht(): bool
