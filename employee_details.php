@@ -522,7 +522,6 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
                 <?php endif; ?>
             </div>
         </div>
-    </form>
 
     <?php if (!$ist_empfang): ?>
         <!-- Zusätzliche Informationen - Checkbox-Sektion -->
@@ -672,6 +671,7 @@ $js_data_attributes = "data-is-hr=\"" . ($ist_hr ? 'true' : 'false') . "\" " .
                 <?php endif; ?>
             </div>
         </div>
+    </form>
 
         <!-- Ausbildung -->
         <div class="card mt-4">
