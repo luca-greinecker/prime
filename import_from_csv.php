@@ -14,7 +14,7 @@ include 'db.php';
 global $conn;
 
 // Pfad zur CSV-Datei ggf. anpassen
-$csvPath = __DIR__ . '/Downloads/Personaldaten.csv';
+$csvPath = __DIR__ . '/assets/Personaldaten.csv';
 
 $missing    = [];
 $ambiguous  = [];
@@ -52,25 +52,73 @@ while (($data = fgetcsv($handle, 0, ';')) !== false) {
         $geschlecht = null;
     }
 
-    // Mitarbeiter anhand Vor- und Nachname suchen
-    $stmt = $conn->prepare('SELECT employee_id, birthdate, gender, entry_date, social_security_number FROM employees WHERE ind_name = ? AND name = ?');
-    $stmt->bind_param('ss', $vorname, $nachname);
+    // Erstelle den erwarteten Namen im DB-Format "Nachname Vorname"
+    $expectedName = $nachname . ' ' . $vorname;
+
+    // Suche nach exakter Übereinstimmung
+    $stmt = $conn->prepare('SELECT employee_id, name, birthdate, gender, entry_date, social_security_number FROM employees WHERE name = ?');
+    $stmt->bind_param('s', $expectedName);
     $stmt->execute();
     $result = $stmt->get_result();
 
+    // Falls keine exakte Übereinstimmung, versuche flexiblere Suche
     if ($result->num_rows === 0) {
-        $missing[] = "$vorname $nachname";
         $stmt->close();
-        continue;
-    }
-    if ($result->num_rows > 1) {
-        $ambiguous[] = "$vorname $nachname";
+
+        // Suche mit LIKE für Variationen (z.B. mehrere Vornamen)
+        $searchPattern = $nachname . '%' . $vorname . '%';
+        $stmt = $conn->prepare('SELECT employee_id, name, birthdate, gender, entry_date, social_security_number FROM employees WHERE name LIKE ?');
+        $stmt->bind_param('s', $searchPattern);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        // Falls immer noch nichts gefunden, versuche nur mit Nachname und prüfe manuell
+        if ($result->num_rows === 0) {
+            $stmt->close();
+
+            $searchPattern = $nachname . '%';
+            $stmt = $conn->prepare('SELECT employee_id, name, birthdate, gender, entry_date, social_security_number FROM employees WHERE name LIKE ?');
+            $stmt->bind_param('s', $searchPattern);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            // Manuelle Prüfung ob Vorname im Ergebnis enthalten ist
+            $matches = [];
+            while ($row = $result->fetch_assoc()) {
+                // Prüfe ob der Vorname irgendwo im Namen vorkommt
+                if (stripos($row['name'], $vorname) !== false) {
+                    $matches[] = $row;
+                }
+            }
+
+            if (count($matches) === 0) {
+                $missing[] = "$vorname $nachname (gesucht als: $expectedName)";
+                $stmt->close();
+                continue;
+            } elseif (count($matches) === 1) {
+                $emp = $matches[0];
+            } else {
+                $ambiguous[] = "$vorname $nachname (mehrere Treffer gefunden)";
+                $stmt->close();
+                continue;
+            }
+        } elseif ($result->num_rows === 1) {
+            $emp = $result->fetch_assoc();
+        } else {
+            $ambiguous[] = "$vorname $nachname (mehrere Treffer gefunden)";
+            $stmt->close();
+            continue;
+        }
+    } elseif ($result->num_rows === 1) {
+        $emp = $result->fetch_assoc();
+    } else {
+        $ambiguous[] = "$vorname $nachname (mehrere Treffer gefunden)";
         $stmt->close();
         continue;
     }
 
-    $emp = $result->fetch_assoc();
     $employeeId = $emp['employee_id'];
+    $dbName = $emp['name'];
     $stmt->close();
 
     $fields = [];
@@ -106,7 +154,7 @@ while (($data = fgetcsv($handle, 0, ';')) !== false) {
         $update->bind_param($values, ...$params);
         $update->execute();
         $update->close();
-        $updated[] = "$vorname $nachname";
+        $updated[] = "$vorname $nachname (DB: $dbName)";
     }
 }
 
@@ -118,6 +166,13 @@ fclose($handle);
 <head>
     <meta charset="UTF-8">
     <title>CSV-Abgleich</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1, h2 { color: #333; }
+        ul { background: #f5f5f5; padding: 20px; border-radius: 5px; }
+        li { margin: 5px 0; }
+        .info { color: #666; font-size: 0.9em; }
+    </style>
 </head>
 <body>
 <h1>Ergebnis des CSV-Abgleichs</h1>
@@ -129,6 +184,7 @@ fclose($handle);
             <li><?php echo htmlspecialchars($name); ?></li>
         <?php endforeach; ?>
     </ul>
+    <p class="info">Diese Mitarbeiter wurden in der Datenbank nicht gefunden.</p>
 <?php else: ?>
     <p>Keine fehlenden Mitarbeiter gefunden.</p>
 <?php endif; ?>
@@ -140,6 +196,7 @@ fclose($handle);
             <li><?php echo htmlspecialchars($name); ?></li>
         <?php endforeach; ?>
     </ul>
+    <p class="info">Für diese Mitarbeiter wurden mehrere mögliche Einträge gefunden.</p>
 <?php endif; ?>
 
 <h2>Aktualisierte Mitarbeiter</h2>
@@ -149,6 +206,7 @@ fclose($handle);
             <li><?php echo htmlspecialchars($name); ?></li>
         <?php endforeach; ?>
     </ul>
+    <p class="info">Bei diesen Mitarbeitern wurden fehlende Daten ergänzt.</p>
 <?php else: ?>
     <p>Keine Aktualisierungen notwendig.</p>
 <?php endif; ?>
